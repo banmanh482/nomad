@@ -29,12 +29,15 @@ func RunCustom(args []string, commands map[string]cli.CommandFactory) int {
 	commandsInclude := make([]string, 0, len(commands))
 	for k, _ := range commands {
 		switch k {
+		case "check":
 		case "deployment list", "deployment status", "deployment pause",
 			"deployment resume", "deployment fail", "deployment promote":
+		case "executor", "libcontainer-shim":
 		case "fs ls", "fs cat", "fs stat":
 		case "job deployments", "job dispatch", "job history", "job promote", "job revert":
 		case "namespace list", "namespace delete", "namespace apply":
 		case "operator raft", "operator raft list-peers", "operator raft remove-peer":
+		case "syslog":
 		case "acl policy", "acl policy apply", "acl token", "acl token create":
 		default:
 			commandsInclude = append(commandsInclude, k)

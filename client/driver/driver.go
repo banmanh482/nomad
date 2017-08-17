@@ -25,6 +25,7 @@ var (
 	BuiltinDrivers = map[string]Factory{
 		"docker":   NewDockerDriver,
 		"exec":     NewExecDriver,
+		"execv2":   NewExecerDriver,
 		"raw_exec": NewRawExecDriver,
 		"java":     NewJavaDriver,
 		"qemu":     NewQemuDriver,

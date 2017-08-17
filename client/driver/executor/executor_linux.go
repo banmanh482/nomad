@@ -18,6 +18,7 @@ import (
 
 	"github.com/hashicorp/nomad/client/stats"
 	cstructs "github.com/hashicorp/nomad/client/structs"
+	"github.com/hashicorp/nomad/helper"
 	"github.com/hashicorp/nomad/nomad/structs"
 )
 
@@ -76,13 +77,13 @@ func (e *UniversalExecutor) configureCgroups(resources *structs.Resources) error
 	e.resConCtx.groups.Path = filepath.Join("/nomad", cgroupName)
 
 	// TODO: verify this is needed for things like network access
-	e.resConCtx.groups.Resources.AllowAllDevices = true
+	e.resConCtx.groups.Resources.AllowAllDevices = helper.BoolToPtr(true)
 
 	if resources.MemoryMB > 0 {
 		// Total amount of memory allowed to consume
-		e.resConCtx.groups.Resources.Memory = int64(resources.MemoryMB * 1024 * 1024)
+		e.resConCtx.groups.Resources.Memory = uint64(resources.MemoryMB * 1024 * 1024)
 		// Disable swap to avoid issues on the machine
-		e.resConCtx.groups.Resources.MemorySwap = int64(-1)
+		e.resConCtx.groups.Resources.MemorySwap = e.resConCtx.groups.Resources.Memory
 	}
 
 	if resources.CPU < 2 {
@@ -90,7 +91,7 @@ func (e *UniversalExecutor) configureCgroups(resources *structs.Resources) error
 	}
 
 	// Set the relative CPU shares for this cgroup.
-	e.resConCtx.groups.Resources.CpuShares = int64(resources.CPU)
+	e.resConCtx.groups.Resources.CpuShares = uint64(resources.CPU)
 
 	if resources.IOPS != 0 {
 		// Validate it is in an acceptable range.
