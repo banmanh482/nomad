@@ -1044,117 +1044,100 @@
 			"revisionTime": "2017-01-11T18:16:59Z"
 		},
 		{
-			"checksumSHA1": "vUJsO6Yk8tYS/BLX3FnowrGFZq8=",
+			"checksumSHA1": "U0e3bM3z/l36rFTkCqyoLEEC7tI=",
 			"path": "github.com/opencontainers/runc/libcontainer",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
 			"checksumSHA1": "vR7lceP8RDWLttyU692t3aYkdB4=",
 			"path": "github.com/opencontainers/runc/libcontainer/apparmor",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "NARaUQgFGOUe2D8oGyPcPFtWdHE=",
-			"comment": "v0.0.9-108-g89ab7f2",
+			"checksumSHA1": "eA9qNw7Tkpi1GLojT/Vxa99aL00=",
 			"path": "github.com/opencontainers/runc/libcontainer/cgroups",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "2UH1wrzaotKeEkZ74kUk6l5hBp0=",
-			"comment": "v0.0.9-108-g89ab7f2",
+			"checksumSHA1": "n4Hosw2oHDDjCOEF9C8L+OUXF0E=",
 			"path": "github.com/opencontainers/runc/libcontainer/cgroups/fs",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
 			"checksumSHA1": "iXZMpJ/4qNnYHiTB8ps1rfJdrlw=",
 			"path": "github.com/opencontainers/runc/libcontainer/cgroups/rootless",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "t/SUwiHeryxTWjJZjosGDNz0Nt8=",
+			"checksumSHA1": "kTKLzlIXhIiCW+t8BbmCB4chSiM=",
 			"path": "github.com/opencontainers/runc/libcontainer/cgroups/systemd",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "CSvKdnXSUaSUqKz0eq2HynNPA3c=",
-			"comment": "v0.0.9-108-g89ab7f2",
+			"checksumSHA1": "Hsxftr43p9BsDSzAGtF0qfk8AdY=",
 			"path": "github.com/opencontainers/runc/libcontainer/configs",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "OxoAJV+XhAhlPlGR2GGSRSALtv0=",
+			"checksumSHA1": "XY15+zdZsJ26C9+O9rPP1buJBrk=",
 			"path": "github.com/opencontainers/runc/libcontainer/configs/validate",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "Xz86hvn4IsUU9R/B6NsqVMsman0=",
+			"checksumSHA1": "I1iwXoDUJeDXviilCtkvDpEF/So=",
 			"path": "github.com/opencontainers/runc/libcontainer/criurpc",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "Xy/KIDXg8pkPbXYh4lj7yDCgn9w=",
+			"checksumSHA1": "4wqGQxKDJja3zmyCeqaRBDZLutU=",
 			"path": "github.com/opencontainers/runc/libcontainer/keys",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "XJjLDMuNDOGPPSamAnl/bRbSWus=",
-			"path": "github.com/opencontainers/runc/libcontainer/label",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
-		},
-		{
-			"checksumSHA1": "hbkd+Tbci29oQBznwHilEAHXcf8=",
+			"checksumSHA1": "1Bs88WOGfavpkZFW712qzmO43vg=",
 			"path": "github.com/opencontainers/runc/libcontainer/nsenter",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "oRiwsLIxm11JzdI3Xp4mvD78hfA=",
+			"checksumSHA1": "5TOwEkoh6ajqzM7D6JUA1hvQzIg=",
 			"path": "github.com/opencontainers/runc/libcontainer/seccomp",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
-		},
-		{
-			"checksumSHA1": "BAOXLZL9HozfaRTJaQCh8pencSM=",
-			"path": "github.com/opencontainers/runc/libcontainer/selinux",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
 			"checksumSHA1": "yp/kYBgVqKtxlnpq4CmyxLFMAE4=",
 			"path": "github.com/opencontainers/runc/libcontainer/stacktrace",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "Ssz9STAL5P2+1poiM63klFjhqhE=",
-			"comment": "v0.0.9-108-g89ab7f2",
+			"checksumSHA1": "Yd7vPcBsfWE12ZWNK0KuBiRNAJY=",
 			"path": "github.com/opencontainers/runc/libcontainer/system",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "MA07KaAp1aPVheuopyrFr7pxANs=",
+			"checksumSHA1": "6R1LMwH2YzUvD6hL6PXzV48jb30=",
 			"path": "github.com/opencontainers/runc/libcontainer/user",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
-			"checksumSHA1": "fMsOBsl753SEOUCTDsm6Gka/u00=",
-			"comment": "v0.0.9-108-g89ab7f2",
+			"checksumSHA1": "d5Q69Fe7H0dNs3VOk38wQ1M/n6I=",
 			"path": "github.com/opencontainers/runc/libcontainer/utils",
-			"revision": "ac50e77bbb440dcab354a328c79754e2502b79ca",
-			"revisionTime": "2017-04-06T22:50:16Z"
+			"revision": "c6126b214160a4a65ed7e6abe6a2c2ae5b92d205",
+			"revisionTime": "2017-08-16T13:46:56Z"
 		},
 		{
 			"checksumSHA1": "fB/0tEPu/K5wbajyToDV8h1okUo=",

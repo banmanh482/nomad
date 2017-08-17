@@ -1,5 +1,3 @@
-// +build linux freebsd
-
 package configs
 
 import (
@@ -64,12 +62,12 @@ func IsNamespaceSupported(ns NamespaceType) bool {
 
 func NamespaceTypes() []NamespaceType {
 	return []NamespaceType{
+		NEWUSER, // Keep user NS always first, don't move it.
+		NEWIPC,
+		NEWUTS,
 		NEWNET,
 		NEWPID,
 		NEWNS,
-		NEWUTS,
-		NEWIPC,
-		NEWUSER,
 	}
 }
 
@@ -81,9 +79,6 @@ type Namespace struct {
 }
 
 func (n *Namespace) GetPath(pid int) string {
-	if n.Path != "" {
-		return n.Path
-	}
 	return fmt.Sprintf("/proc/%d/ns/%s", pid, NsName(n.Type))
 }
 
