@@ -93,7 +93,7 @@ func TestSearch_PrefixSearch_All_JobWithHyphen(t *testing.T) {
 		var resp structs.SearchResponse
 		assert.Nil(msgpackrpc.CallWithCodec(codec, "Search.PrefixSearch", req, &resp))
 		assert.Equal(1, len(resp.Matches[structs.Jobs]))
-		assert.Equal(job.ID, resp.Matches[structs.Jobs][0])
+		assert.Equal(jobID, resp.Matches[structs.Jobs][0])
 		assert.EqualValues(jobIndex, resp.Index)
 	}
 }
