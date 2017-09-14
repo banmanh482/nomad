@@ -94,7 +94,7 @@ func (e *Eval) Dequeue(args *structs.EvalDequeueRequest,
 	// Provide the output if any
 	if eval != nil {
 		// Get the index that the worker should wait until before scheduling.
-		waitIndex, err := e.getWaitIndex(eval.Namespace, eval.JobID)
+		waitIndex, err := e.getWaitIndex(eval.JobID)
 		if err != nil {
 			var mErr multierror.Error
 			multierror.Append(&mErr, err)
@@ -122,13 +122,13 @@ func (e *Eval) Dequeue(args *structs.EvalDequeueRequest,
 // invoking the scheduler. The index should be the highest modify index of any
 // evaluation for the job. This prevents scheduling races for the same job when
 // there are blocked evaluations.
-func (e *Eval) getWaitIndex(namespace, job string) (uint64, error) {
+func (e *Eval) getWaitIndex(job string) (uint64, error) {
 	snap, err := e.srv.State().Snapshot()
 	if err != nil {
 		return 0, err
 	}
 
-	evals, err := snap.EvalsByJob(nil, namespace, job)
+	evals, err := snap.EvalsByJob(nil, job)
 	if err != nil {
 		return 0, err
 	}
