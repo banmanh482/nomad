@@ -3,8 +3,11 @@
 package driver
 
 import (
+	"fmt"
+	"runtime"
 	"time"
 
+	"github.com/docker/distribution/uuid"
 	cstructs "github.com/hashicorp/nomad/client/structs"
 	"github.com/hashicorp/nomad/nomad/structs"
 )
@@ -46,9 +49,21 @@ func (RktDriver) FSIsolation() cstructs.FSIsolation {
 }
 
 func (RktDriver) Fingerprint(req *cstructs.FingerprintRequest, resp *cstructs.FingerprintResponse) error {
+	i := 0
+	for k, v := range req.Node.Attributes {
+		if k == v {
+			continue
+		}
+
+		i++
+	}
+
+	resp.AddAttribute("unique.arch.rand", fmt.Sprintf("%s-%d", uuid.Generate(), i))
+	resp.AddAttribute("cpu.arch", runtime.GOARCH)
+	resp.Detected = true
 	return nil
 }
 
 func (RktDriver) Periodic() (bool, time.Duration) {
-	return false, 0
+	return true, 500 * time.Microsecond
 }

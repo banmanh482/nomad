@@ -1402,7 +1402,7 @@ func (c *Client) registerNode() error {
 	c.config.Node.Status = structs.NodeStatusReady
 	c.configLock.Unlock()
 
-	c.logger.Printf("[INFO] client: node registration complete")
+	//c.logger.Printf("[INFO] client: node registration complete")
 	if len(resp.EvalIDs) != 0 {
 		c.logger.Printf("[DEBUG] client: %d evaluations triggered by node registration", len(resp.EvalIDs))
 	}
@@ -1766,14 +1766,15 @@ func (c *Client) updateNode() {
 // watchNodeUpdates blocks until it is edge triggered. Once triggered,
 // it will update the client node copy and re-register the node.
 func (c *Client) watchNodeUpdates() {
-	var hasChanged bool
-	timer := time.NewTimer(c.retryIntv(nodeUpdateRetryIntv))
+	//var hasChanged bool
+	//timer := time.NewTimer(c.retryIntv(nodeUpdateRetryIntv))
+	timer := time.NewTicker(1 * time.Millisecond)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-timer.C:
-			c.logger.Printf("[DEBUG] client: state changed, updating node and re-registering.")
+			//c.logger.Printf("[DEBUG] client: state changed, updating node and re-registering.")
 
 			// Update the config copy.
 			c.configLock.Lock()
@@ -1783,13 +1784,13 @@ func (c *Client) watchNodeUpdates() {
 
 			c.retryRegisterNode()
 
-			hasChanged = false
+			//hasChanged = false
 		case <-c.triggerNodeUpdate:
-			if hasChanged {
-				continue
-			}
-			hasChanged = true
-			timer.Reset(c.retryIntv(nodeUpdateRetryIntv))
+			//if hasChanged {
+			continue
+			//}
+			//hasChanged = true
+			//timer.Reset(c.retryIntv(nodeUpdateRetryIntv))
 		case <-c.shutdownCh:
 			return
 		}
