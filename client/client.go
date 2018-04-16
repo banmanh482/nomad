@@ -1776,7 +1776,7 @@ func (c *Client) updateNodeLocked() {
 func (c *Client) watchNodeUpdates() {
 	//var hasChanged bool
 	//timer := time.NewTimer(c.retryIntv(nodeUpdateRetryIntv))
-	timer := time.NewTicker(1 * time.Millisecond)
+	timer := time.NewTicker(100 * time.Millisecond)
 	defer timer.Stop()
 
 	for {
