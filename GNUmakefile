@@ -243,10 +243,10 @@ test: ## Run the Nomad test suite and/or the Nomad UI test suite
 .PHONY: test-nomad
 test-nomad: dev ## Run Nomad test suites
 	@echo "==> Running Nomad test suites:"
-	@go test $(if $(VERBOSE),-v) \
+	@go test  \
 			-json \
 			-timeout=900s \
-			-tags="$(if $(HAS_LXC),lxc)" ./... $(if $(VERBOSE), >test.log ; echo $$? > exit-code)
+			-tags="$(if $(HAS_LXC),lxc)" ./... | jq '. | select(has("Test")) | select(has("Elapsed")) | select(.Elapsed > 30)' 
 	@if [ $(VERBOSE) ] ; then \
 		bash -C "$(PROJECT_ROOT)/scripts/test_check.sh" ; \
 	fi
