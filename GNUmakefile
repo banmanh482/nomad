@@ -244,7 +244,7 @@ test: ## Run the Nomad test suite and/or the Nomad UI test suite
 test-nomad: dev ## Run Nomad test suites
 	@echo "==> Running Nomad test suites:"
 	@go test $(if $(VERBOSE),-v) \
-			-cover \
+			-json \
 			-timeout=900s \
 			-tags="$(if $(HAS_LXC),lxc)" ./... $(if $(VERBOSE), >test.log ; echo $$? > exit-code)
 	@if [ $(VERBOSE) ] ; then \
