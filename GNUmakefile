@@ -246,7 +246,7 @@ test-nomad: dev ## Run Nomad test suites
 	@go test  \
 			-json \
 			-timeout=900s \
-			-tags="$(if $(HAS_LXC),lxc)" ./... | jq '. | select(has("Test")) | select(has("Elapsed")) | select(.Elapsed > 30)' 
+			-tags="$(if $(HAS_LXC),lxc)" ./... | jq '. | select(has("Test")) | select(has("Elapsed")) | select(.Elapsed > 20)' 
 	@if [ $(VERBOSE) ] ; then \
 		bash -C "$(PROJECT_ROOT)/scripts/test_check.sh" ; \
 	fi
