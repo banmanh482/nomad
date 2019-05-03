@@ -54,13 +54,10 @@ func WaitForNodesReady(t *testing.T, nomadClient *api.Client, nodes int) {
 	})
 }
 
-func RegisterAndWaitForAllocs(t *testing.T, nomadClient *api.Client, jobFile string, jobID string) []*api.AllocationListStub {
-	// Parse job
-	job, err := jobspec.ParseFile(jobFile)
+// RegisterJob registers a Job struct. The allocations created are returned or
+// the test is failed if the allocations could not be retrieved.
+func RegisterJob(t *testing.T, nomadClient *api.Client, job *api.Job) []*api.AllocationListStub {
 	require := require.New(t)
-	require.Nil(err)
-	job.ID = helper.StringToPtr(jobID)
-
 	g := NewGomegaWithT(t)
 
 	// Register job
@@ -87,6 +84,20 @@ func RegisterAndWaitForAllocs(t *testing.T, nomadClient *api.Client, jobFile str
 	return allocs
 }
 
+// RegisterAndWaitForAllocs registers an HCL job file after replacing its jobID
+// with the specified ID. The allocations created are returned or the test is
+// failed if the allocations could not be retrieved.
+func RegisterAndWaitForAllocs(t *testing.T, nomadClient *api.Client, jobFile string, jobID string) []*api.AllocationListStub {
+	// Parse job
+	job, err := jobspec.ParseFile(jobFile)
+	require.Nil(t, err)
+	job.ID = helper.StringToPtr(jobID)
+
+	return RegisterJob(t, nomadClient, job)
+}
+
+// WaitForAllocRunning blocks until the specified alloc is running or fails the
+// test.
 func WaitForAllocRunning(t *testing.T, nomadClient *api.Client, allocID string) {
 	testutil.WaitForResultRetries(retries, func() (bool, error) {
 		time.Sleep(time.Millisecond * 100)
