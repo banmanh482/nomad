@@ -2,8 +2,13 @@ package reboot
 
 import (
 	"fmt"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
 	"time"
 
+	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/e2e/e2eutil"
 	"github.com/hashicorp/nomad/e2e/framework"
 	"github.com/hashicorp/nomad/helper"
@@ -75,18 +80,27 @@ func (tc *RebootE2ETest) TestReboot_TerminalAlloc(f *framework.F) {
 	})
 
 	// Reboot the node
-	rebootJob, err := jobspec.ParseFile("reboot/input/reboot.nomad")
-	require.NoError(t, err)
-	rebootJob.ID = helper.StringToPtr("reboot" + uuid.Generate()[0:8])
-	rebootJob.Name = rebootJob.ID
-	rebootJob.Constraints[0].RTarget = allocs[0].NodeID
+	/*
+		rebootJob, err := jobspec.ParseFile("reboot/input/reboot.nomad")
+		require.NoError(t, err)
+		rebootJob.ID = helper.StringToPtr("reboot" + uuid.Generate()[0:8])
+		rebootJob.Name = rebootJob.ID
+		rebootJob.Constraints[0].RTarget = allocs[0].NodeID
 
-	resp, _, err := nomadClient.Jobs().Register(rebootJob, nil)
-	require.NoError(t, err)
-	require.NotZero(t, resp.EvalID)
+		resp, _, err := nomadClient.Jobs().Register(rebootJob, nil)
+		require.NoError(t, err)
+		require.NotZero(t, resp.EvalID)
+	*/
 
-	// Wait for reboot (see reboot.nomad for timing)
-	t.Logf("Waiting for reboot (eval=%q)", resp.EvalID)
+	reboot(t, nomadClient, allocs[0].NodeID)
+
+	// Wait for reboot
+	t.Logf("Waiting for reboot")
+
+	// Stop the job
+	_, _, err = nomadClient.Jobs().Deregister(*sleeperJob.ID, false, nil)
+	require.NoError(t, err)
+
 	time.Sleep(10 * time.Second)
 
 	// Make sure alloc is restarted
@@ -112,4 +126,37 @@ func (tc *RebootE2ETest) TestReboot_TerminalAlloc(f *framework.F) {
 	}, func(err error) {
 		require.NoError(t, err)
 	})
+}
+
+// reboot a remote EC2 instance via ssh
+func reboot(t *testing.T, c *api.Client, nodeID string) {
+	node, _, err := c.Nodes().Info(nodeID, nil)
+	require.NoError(t, err)
+
+	ip, ok := node.Attributes["unique.platform.aws.public-ipv4"]
+	require.True(t, ok, "missing 'unique.platform.aws.public-ipv4' attribute")
+
+	pems, err := filepath.Glob("terraform/keys/*.pem")
+	require.NoError(t, err)
+	require.Len(t, pems, 1, "expected exactly 1 pem file")
+
+	cmd := exec.Command("ssh",
+		"-i", pems[0],
+		"-o", "StrictHostKeyChecking=accept-new",
+		fmt.Sprintf("ubuntu@%s", ip),
+		`sudo reboot && sleep 10`, // sleep to get an error on reboot
+	)
+
+	// Command should error because host is rebooting
+	out, err := cmd.CombinedOutput()
+	require.Error(t, err)
+	msg := string(out)
+	switch {
+	case strings.Contains(msg, "closed by remote host."):
+		// Expected error
+	case strings.Contains(msg, "Broken pipe"):
+		// Expected error
+	default:
+		require.Failf(t, "unexpected error", msg)
+	}
 }
