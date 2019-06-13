@@ -137,6 +137,21 @@ type VaultClient interface {
 // VaultStats returns all the stats about Vault tokens created and managed by
 // Nomad.
 type VaultStats struct {
+
+	// active indicates whether the vaultClient is active. It should be
+	// accessed using a helper and updated atomically
+	active bool
+
+	// running indicates whether the vault client is started.
+	running bool
+
+	// connEstablished marks whether we have an established connection to Vault.
+	connEstablished bool
+
+	// connEstablishedErr marks an error that can occur when establishing a
+	// connection
+	connEstablishedErr error
+
 	// TrackedForRevoke is the count of tokens that are being tracked to be
 	// revoked since they could not be immediately revoked.
 	TrackedForRevoke int
@@ -1293,23 +1308,36 @@ func (v *vaultClient) setLimit(l rate.Limit) {
 
 func (v *vaultClient) Stats() map[string]string {
 	stat := v.stats()
-
 	expireTimeStr := ""
 
 	if !stat.TokenExpiry.IsZero() {
 		expireTimeStr = stat.TokenExpiry.Format(time.RFC3339)
 	}
 
+	maybeEmitError := func(e error) string {
+		if e != nil {
+			return e.Error()
+		}
+		return ""
+	}
 	return map[string]string{
-		"tracked_for_revoked": strconv.Itoa(stat.TrackedForRevoke),
-		"token_ttl":           stat.TokenTTL.Round(time.Second).String(),
-		"token_expire_time":   expireTimeStr,
+		"active":                 strconv.FormatBool(stat.active),
+		"running":                strconv.FormatBool(stat.running),
+		"connection_established": strconv.FormatBool(stat.connEstablished),
+		"connection_error":       maybeEmitError(stat.connEstablishedErr),
+		"tracked_for_revoked":    strconv.Itoa(stat.TrackedForRevoke),
+		"token_ttl":              stat.TokenTTL.Round(time.Second).String(),
+		"token_expire_time":      expireTimeStr,
 	}
 }
 
 func (v *vaultClient) stats() *VaultStats {
 	// Allocate a new stats struct
 	stats := new(VaultStats)
+
+	stats.active = v.Active()
+	stats.running = v.Running()
+	stats.connEstablished, stats.connEstablishedErr = v.ConnectionEstablished()
 
 	v.revLock.Lock()
 	stats.TrackedForRevoke = len(v.revoking)
@@ -1326,7 +1354,7 @@ func (v *vaultClient) stats() *VaultStats {
 	return stats
 }
 
-// EmitStats is used to export metrics about the blocked eval tracker while enabled
+// EmitStats is used to export metrics about the internal Vault client while enabled
 func (v *vaultClient) EmitStats(period time.Duration, stopCh <-chan struct{}) {
 	for {
 		select {
