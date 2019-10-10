@@ -2,12 +2,10 @@ package scheduler
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
-	"sort"
-
 	log "github.com/hashicorp/go-hclog"
-
 	"github.com/hashicorp/nomad/helper"
 	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -41,7 +39,7 @@ type allocReconciler struct {
 	// minimal here
 	logger log.Logger
 
-	// canInplace is used to check if the allocation can be inplace upgraded
+	// allocUpdateFn is used to check if the allocation can be inplace upgraded
 	allocUpdateFn allocUpdateType
 
 	// batch marks whether the job is a batch job
@@ -77,7 +75,7 @@ type allocReconciler struct {
 	evalID string
 
 	// now is the time used when determining rescheduling eligibility
-	// defaults to time.Now, and overidden in unit tests
+	// defaults to time.Now, and overridden in unit tests
 	now time.Time
 
 	// result is the results of the reconcile. During computation it can be

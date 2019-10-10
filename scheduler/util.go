@@ -757,15 +757,21 @@ func updateNonTerminalAllocsToLost(plan *structs.Plan, tainted map[string]*struc
 // factory allows the reconciler to be unaware of how to determine the type of
 // update necessary and can minimize the set of objects it is exposed to.
 func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateType {
+
+	fmt.Println("SH create allocUpdateType for evalID:", evalID)
+
 	return func(existing *structs.Allocation, newJob *structs.Job, newTG *structs.TaskGroup) (ignore, destructive bool, updated *structs.Allocation) {
 		// Same index, so nothing to do
 		if existing.Job.JobModifyIndex == newJob.JobModifyIndex {
+			// todo: welp this is where we end up
+			fmt.Println("SH -- ignore, JobModifyIndex is the same:", existing.Job.JobModifyIndex, evalID)
 			return true, false, nil
 		}
 
 		// Check if the task drivers or config has changed, requires
 		// a destructive upgrade since that cannot be done in-place.
 		if tasksUpdated(newJob, existing.Job, newTG.Name) {
+			fmt.Println("SH -- destructive, tasksUpdated:", evalID)
 			return false, true, nil
 		}
 
@@ -774,6 +780,7 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 		// the case that it is an in-place update to avoid both additional data
 		// in the plan and work for the clients.
 		if existing.TerminalStatus() {
+			fmt.Println("SH -- ignore, existing is TerminalStatus", evalID)
 			return true, false, nil
 		}
 
@@ -782,6 +789,7 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 		node, err := ctx.State().NodeByID(ws, existing.NodeID)
 		if err != nil {
 			ctx.Logger().Error("failed to get node", "node_id", existing.NodeID, "error", err)
+			fmt.Println("SH -- ignore, failed to get node_id:", existing.NodeID, evalID)
 			return true, false, nil
 		}
 		if node == nil {
@@ -808,6 +816,7 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 			return false, true, nil
 		}
 
+		// TODO: mark this comment because it is interesting
 		// Restore the network offers from the existing allocation.
 		// We do not allow network resources (reserved/dynamic ports)
 		// to be updated. This is guarded in taskUpdated, so we can

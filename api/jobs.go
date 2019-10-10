@@ -101,8 +101,8 @@ func (j *Jobs) EnforceRegister(job *Job, modifyIndex uint64, q *WriteOptions) (*
 	return j.RegisterOpts(job, &opts, q)
 }
 
-// Register is used to register a new job. It returns the ID
-// of the evaluation, along with any errors encountered.
+// RegisterOpts is used to register a new job, with given options. It returns
+// the ID of the evaluation, along with any errors encountered.
 func (j *Jobs) RegisterOpts(job *Job, opts *RegisterOptions, q *WriteOptions) (*JobRegisterResponse, *WriteMeta, error) {
 	// Format the request
 	req := &RegisterJobRequest{
