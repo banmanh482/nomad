@@ -93,12 +93,17 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 		return fmt.Errorf("mismatched request namespace in request: %q, %q", args.RequestNamespace(), args.Job.Namespace)
 	}
 
+	fmt.Println("register args.Job")
+	structs.ShPrintTG(args.Job, "before ac")
+
 	// Run admission controllers
 	job, warnings, err := j.admissionControllers(args.Job)
 	if err != nil {
 		return err
 	}
 	args.Job = job
+
+	structs.ShPrintTG(job, "after ac")
 
 	// Set the warning message
 	reply.Warnings = structs.MergeMultierrorWarnings(warnings...)
@@ -225,7 +230,7 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 	args.Job.VaultToken = ""
 
 	// Check if the job has changed at all
-	if existingJob == nil || existingJob.SpecChanged(args.Job) {
+	if existingJob == nil || existingJob.SpecChanged(args.Job) { // todo: hihi this looks fun
 		// Set the submit time
 		args.Job.SetSubmitTime()
 
@@ -270,6 +275,7 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 		WriteRequest: structs.WriteRequest{Region: args.Region},
 	}
 
+	fmt.Println("SH: going to do raftApply EvalUpdateRequestType, evalJobID:", eval.JobID)
 	// Commit this evaluation via Raft
 	// XXX: There is a risk of partial failure where the JobRegister succeeds
 	// but that the EvalUpdate does not.
@@ -348,6 +354,9 @@ func (j *Job) Summary(args *structs.JobSummaryRequest,
 func (j *Job) Validate(args *structs.JobValidateRequest, reply *structs.JobValidateResponse) error {
 	defer metrics.MeasureSince([]string{"nomad", "job", "validate"}, time.Now())
 
+	fmt.Println("SH Validate")
+	structs.ShPrintTG(args.Job, "validate")
+
 	// defensive check; http layer and RPC requester should ensure namespaces are set consistently
 	if args.RequestNamespace() != args.Job.Namespace {
 		return fmt.Errorf("mismatched request namespace in request: %q, %q", args.RequestNamespace(), args.Job.Namespace)
@@ -390,6 +399,8 @@ func (j *Job) Validate(args *structs.JobValidateRequest, reply *structs.JobValid
 
 // Revert is used to revert the job to a prior version
 func (j *Job) Revert(args *structs.JobRevertRequest, reply *structs.JobRegisterResponse) error {
+	fmt.Println("SH Revert: jobID:", args.JobID)
+
 	if done, err := j.srv.forward("Job.Revert", args, args, reply); done {
 		return err
 	}

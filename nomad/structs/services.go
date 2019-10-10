@@ -795,8 +795,23 @@ type ConsulProxy struct {
 	Config map[string]interface{}
 }
 
+func ShUpstreams(p *ConsulProxy, ns string) {
+	for _, upstream := range p.Upstreams {
+		fmt.Printf(
+			"SH: (%s)(upstream: %s, bind: %d)\n",
+			ns,
+			upstream.DestinationName,
+			upstream.LocalBindPort,
+		)
+	}
+}
+
 // Copy the stanza recursively. Returns nil if nil.
+// todo: hihi, does this work
 func (p *ConsulProxy) Copy() *ConsulProxy {
+	fmt.Println("SH: ConsulProxy.Copy!")
+	ShUpstreams(p, "original")
+
 	if p == nil {
 		return nil
 	}
@@ -821,6 +836,7 @@ func (p *ConsulProxy) Copy() *ConsulProxy {
 		}
 	}
 
+	ShUpstreams(&newP, "copy")
 	return &newP
 }
 

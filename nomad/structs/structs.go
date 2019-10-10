@@ -3790,7 +3790,10 @@ func (j *Job) RequiredSignals() map[string]map[string][]string {
 // SpecChanged determines if the functional specification has changed between
 // two job versions.
 func (j *Job) SpecChanged(new *Job) bool {
+	fmt.Println("SH SpecChanged old:", j.Name, "new:", new.Name)
+
 	if j == nil {
+		fmt.Println("SH SpecChanged (j==nil, new != nil)")
 		return new != nil
 	}
 
@@ -3808,7 +3811,46 @@ func (j *Job) SpecChanged(new *Job) bool {
 	c.SubmitTime = j.SubmitTime
 
 	// Deep equals the jobs
-	return !reflect.DeepEqual(j, c)
+	jDE := !reflect.DeepEqual(j, c)
+	fmt.Println("SH: jobs deep equal:", jDE) // not expected, but it is
+
+	ShPrintTG(j, "old")
+	ShPrintTG(c, "new")
+
+	return jDE
+}
+
+func ShPrintTG(j *Job, ns string) {
+	for _, tg := range j.TaskGroups {
+		for _, service := range tg.Services {
+			connectPort := shMaybeLSP(service)
+			fmt.Printf(
+				"SH (ns: %s, job: %s, tg: %s, service: %s, lsp: %s)\n",
+				ns, j.Name, tg.Name, service.Name, connectPort,
+			)
+		}
+	}
+}
+
+func shMaybeLSP(s *Service) string {
+	if s == nil {
+		return "<nil service>"
+	}
+
+	if s.Connect == nil {
+		return "<nil s.Connect>"
+	}
+
+	if s.Connect.SidecarService == nil {
+		return "<nil s.Connect.SidecarService>"
+	}
+
+	if s.Connect.SidecarService.Proxy == nil {
+		return "<nil s.Connect.SidecarService.proxy>"
+	}
+
+	port := strconv.Itoa(s.Connect.SidecarService.Proxy.LocalServicePort)
+	return port
 }
 
 func (j *Job) SetSubmitTime() {
