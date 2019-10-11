@@ -3811,13 +3811,13 @@ func (j *Job) SpecChanged(new *Job) bool {
 	c.SubmitTime = j.SubmitTime
 
 	// Deep equals the jobs
-	jDE := !reflect.DeepEqual(j, c)
-	fmt.Println("SH: jobs deep equal:", jDE) // not expected, but it is
+	jDE := reflect.DeepEqual(j, c)
+	fmt.Println("SH: jobs IS deep equal:", jDE) // not expected, but it is
 
 	ShPrintTG(j, "old")
 	ShPrintTG(c, "new")
 
-	return jDE
+	return !jDE
 }
 
 func ShPrintTG(j *Job, ns string) {

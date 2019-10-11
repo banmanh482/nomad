@@ -192,8 +192,20 @@ func (h *serviceHook) Stop(ctx context.Context, req *interfaces.TaskStopRequest,
 }
 
 func (h *serviceHook) getTaskServices() *agentconsul.TaskServices {
+
+	fmt.Println("SH: getTaskServices, before interpolation")
+
+	for _, service := range h.services {
+		fmt.Println(" -> " + service.ShConnectString())
+	}
+
 	// Interpolate with the task's environment
 	interpolatedServices := interpolateServices(h.taskEnv, h.services)
+
+	fmt.Println("SH: getTaskServices, after interpolation")
+	for _, service := range interpolatedServices {
+		fmt.Println(" -> ", service.ShConnectString())
+	}
 
 	// Create task services struct with request's driver metadata
 	return &agentconsul.TaskServices{

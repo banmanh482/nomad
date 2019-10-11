@@ -334,10 +334,10 @@ func shuffleNodes(nodes []*structs.Node) {
 	}
 }
 
-// tasksUpdated does a diff between task groups to see if the
-// tasks, their drivers, environment variables or config have updated. The
-// inputs are the task group name to diff and two jobs to diff.
-func tasksUpdated(jobA, jobB *structs.Job, taskGroup string) bool {
+func tasksUpdatedHelper(jobA, jobB *structs.Job, taskGroup string) bool {
+	fmt.Printf("SH: ~~ taskUpdatedHelper, taskGroup: %s\n", taskGroup)
+	fmt.Printf("  jobA.Name: %s, jobB.Name: %s\n", jobA.Name, jobB.Name)
+
 	a := jobA.LookupTaskGroup(taskGroup)
 	b := jobB.LookupTaskGroup(taskGroup)
 
@@ -356,12 +356,19 @@ func tasksUpdated(jobA, jobB *structs.Job, taskGroup string) bool {
 		return true
 	}
 
+	// Check consul connect configuration
+	if connectUpdated(a.Services, b.Services) {
+		return true
+	}
+
 	// Check each task
 	for _, at := range a.Tasks {
+
 		bt := b.LookupTask(at.Name)
 		if bt == nil {
 			return true
 		}
+
 		if at.Driver != bt.Driver {
 			return true
 		}
@@ -391,6 +398,8 @@ func tasksUpdated(jobA, jobB *structs.Job, taskGroup string) bool {
 			return true
 		}
 
+		// why so much effort for in-place updates
+
 		// Inspect the network to see if the dynamic ports are different
 		if networkUpdated(at.Resources.Networks, bt.Resources.Networks) {
 			return true
@@ -404,6 +413,36 @@ func tasksUpdated(jobA, jobB *structs.Job, taskGroup string) bool {
 		}
 	}
 	return false
+}
+
+func connectUpdated(a, b []*structs.Service) bool {
+	for _, as := range a {
+		if as.Connect != nil {
+			for _, bs := range b {
+				if as.Name == bs.Name {
+					fmt.Printf("SH cU compare %s :: %s\n", as.Name, bs.Name)
+					if !as.Connect.Equals(bs.Connect) {
+						fmt.Printf(" -> is different!\n")
+						return true
+					}
+					fmt.Printf(" -> is same!\n")
+				}
+			}
+		}
+	}
+	return false
+}
+
+// tasksUpdated does a diff between task groups to see if the
+// tasks, their drivers, environment variables or config have updated. The
+// inputs are the task group name to diff and two jobs to diff.
+func tasksUpdated(jobA, jobB *structs.Job, taskGroup string) bool {
+	result := tasksUpdatedHelper(jobA, jobB, taskGroup)
+	fmt.Printf(
+		"SH: tasksUpdated, comparing group[%s], jobs:  %s (%d) to %s (%d): %t\n",
+		taskGroup, jobA.Name, jobA.ModifyIndex, jobB.Name, jobB.ModifyIndex, result,
+	)
+	return result
 }
 
 func networkUpdated(netA, netB []*structs.NetworkResource) bool {
@@ -750,6 +789,22 @@ func updateNonTerminalAllocsToLost(plan *structs.Plan, tainted map[string]*struc
 	}
 }
 
+func shJobConnect(job *structs.Job, ns string) {
+	fmt.Printf("@show (%s) connect job[%s]\n", ns, job.Name)
+	for _, tg := range job.TaskGroups {
+		for _, service := range tg.Services {
+			fmt.Printf(" tg[%s].service[%s] -> %s\n", tg.Name, service.Name, service.ShConnectString())
+		}
+
+		// not relevant ...
+		for _, task := range tg.Tasks {
+			for _, service := range task.Services {
+				fmt.Printf(" tg[%s].task[%s].service[%s] -> %s\n", tg.Name, task.Name, service.Name, service.ShConnectString())
+			}
+		}
+	}
+}
+
 // genericAllocUpdateFn is a factory for the scheduler to create an allocUpdateType
 // function to be passed into the reconciler. The factory takes objects that
 // exist only in the scheduler context and returns a function that can be used
@@ -758,20 +813,29 @@ func updateNonTerminalAllocsToLost(plan *structs.Plan, tainted map[string]*struc
 // update necessary and can minimize the set of objects it is exposed to.
 func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateType {
 
-	fmt.Println("SH create allocUpdateType for evalID:", evalID)
+	fmt.Println("SH: create allocUpdateType for evalID:", evalID)
 
 	return func(existing *structs.Allocation, newJob *structs.Job, newTG *structs.TaskGroup) (ignore, destructive bool, updated *structs.Allocation) {
+
+		fmt.Printf("SH: genericAllocUpdateFn will evaluate stuff for ...\n")
+		fmt.Printf(" newJob.Name: %s, index: %d\n", newJob.Name, newJob.ModifyIndex)
+		fmt.Printf(" existing.Name: %s, index: %d\n", existing.Name, existing.ModifyIndex)
+		fmt.Printf(" newTG.Name: %s\n", newTG.Name)
+
 		// Same index, so nothing to do
 		if existing.Job.JobModifyIndex == newJob.JobModifyIndex {
-			// todo: welp this is where we end up
-			fmt.Println("SH -- ignore, JobModifyIndex is the same:", existing.Job.JobModifyIndex, evalID)
+			fmt.Printf(" -> ignore, JobModifyIndex is same %d\n", existing.Job.JobModifyIndex)
 			return true, false, nil
 		}
 
+		// todo: the jobs being passed in have no connect stanza?
+		shJobConnect(newJob, "newJob")
+		shJobConnect(existing.Job, "existing.Job")
+
 		// Check if the task drivers or config has changed, requires
 		// a destructive upgrade since that cannot be done in-place.
-		if tasksUpdated(newJob, existing.Job, newTG.Name) {
-			fmt.Println("SH -- destructive, tasksUpdated:", evalID)
+		if tasksUpdated(newJob, existing.Job, newTG.Name) { // todo: bug is probably here?
+			fmt.Println(" -> destructive, tasksUpdated:", evalID)
 			return false, true, nil
 		}
 
@@ -780,7 +844,7 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 		// the case that it is an in-place update to avoid both additional data
 		// in the plan and work for the clients.
 		if existing.TerminalStatus() {
-			fmt.Println("SH -- ignore, existing is TerminalStatus", evalID)
+			fmt.Println(" -> ignore, existing is TerminalStatus", evalID)
 			return true, false, nil
 		}
 
@@ -789,10 +853,11 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 		node, err := ctx.State().NodeByID(ws, existing.NodeID)
 		if err != nil {
 			ctx.Logger().Error("failed to get node", "node_id", existing.NodeID, "error", err)
-			fmt.Println("SH -- ignore, failed to get node_id:", existing.NodeID, evalID)
+			fmt.Println(" -> ignore, failed to get node_id:", existing.NodeID, evalID)
 			return true, false, nil
 		}
 		if node == nil {
+			fmt.Println(" -> destructive: node is nil")
 			return false, true, nil
 		}
 
@@ -813,10 +878,10 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 
 		// Require destructive if we could not do an in-place update
 		if option == nil {
+			fmt.Println(" -> destructive, could not do in-place (option==nil)")
 			return false, true, nil
 		}
 
-		// TODO: mark this comment because it is interesting
 		// Restore the network offers from the existing allocation.
 		// We do not allow network resources (reserved/dynamic ports)
 		// to be updated. This is guarded in taskUpdated, so we can
@@ -860,6 +925,7 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 		// metadata from the context would incorrectly replace it with metadata only from a single node that the
 		// allocation is already on.
 		newAlloc.Metrics = existing.Metrics.Copy()
+		fmt.Println("-> inplace (at the bottom)")
 		return false, false, newAlloc
 	}
 }

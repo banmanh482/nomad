@@ -2,6 +2,7 @@ package structs
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -333,6 +334,14 @@ type Service struct {
 	Meta       map[string]string // Consul service meta
 }
 
+func (s *Service) ShConnectString() string {
+	js, err := json.MarshalIndent(s.Connect, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	return string(js)
+}
+
 // Copy the stanza recursively. Returns nil if nil.
 func (s *Service) Copy() *Service {
 	if s == nil {
@@ -479,8 +488,15 @@ func (s *Service) Hash(allocID, taskName string, canary bool) string {
 	return b32.EncodeToString(h.Sum(nil))
 }
 
-// Equals returns true if the structs are recursively equal.
+// lmao this is only used in tests!
 func (s *Service) Equals(o *Service) bool {
+	result := s.equals(o)
+	fmt.Println("SH: Service.Equals, result: ", result)
+	return result
+}
+
+// Equals returns true if the structs are recursively equal.
+func (s *Service) equals(o *Service) bool {
 	if s == nil || o == nil {
 		return s == o
 	}
@@ -807,14 +823,15 @@ func ShUpstreams(p *ConsulProxy, ns string) {
 }
 
 // Copy the stanza recursively. Returns nil if nil.
-// todo: hihi, does this work
 func (p *ConsulProxy) Copy() *ConsulProxy {
-	fmt.Println("SH: ConsulProxy.Copy!")
-	ShUpstreams(p, "original")
+	// fmt.Println("SH: ConsulProxy.Copy!")
 
 	if p == nil {
+		// fmt.Println("SH: ConsulProxy is nil!")
 		return nil
 	}
+
+	// ShUpstreams(p, "original")
 
 	newP := ConsulProxy{}
 	newP.LocalServiceAddress = p.LocalServiceAddress
@@ -840,8 +857,7 @@ func (p *ConsulProxy) Copy() *ConsulProxy {
 	return &newP
 }
 
-// Equals returns true if the structs are recursively equal.
-func (p *ConsulProxy) Equals(o *ConsulProxy) bool {
+func equalsConsulProxy(p, o *ConsulProxy) bool {
 	if p == nil || o == nil {
 		return p == o
 	}
@@ -878,6 +894,13 @@ OUTER:
 	}
 
 	return true
+}
+
+// Equals returns true if the structs are recursively equal.
+func (p *ConsulProxy) Equals(o *ConsulProxy) bool {
+	result := equalsConsulProxy(p, o)
+	fmt.Println("SH: ConsulProxy.Equals, result:", result)
+	return result
 }
 
 // ConsulUpstream represents a Consul Connect upstream jobspec stanza.

@@ -231,6 +231,8 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 
 	// Check if the job has changed at all
 	if existingJob == nil || existingJob.SpecChanged(args.Job) { // todo: hihi this looks fun
+		fmt.Println("SH: Job.Register, job HAS changed")
+
 		// Set the submit time
 		args.Job.SetSubmitTime()
 
@@ -247,8 +249,10 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 
 		// Populate the reply with job information
 		reply.JobModifyIndex = index
+		fmt.Println("SH: Job.Register, new job index:", index)
 	} else {
 		reply.JobModifyIndex = existingJob.JobModifyIndex
+		fmt.Println("SH: Job Register, job has NOT changed, index:", existingJob.ModifyIndex)
 	}
 
 	// If the job is periodic or parameterized, we don't create an eval.

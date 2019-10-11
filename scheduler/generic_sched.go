@@ -332,18 +332,27 @@ func (s *GenericScheduler) computeJobAllocs() error {
 	// Determine the tainted nodes containing job allocs
 	tainted, err := taintedNodes(s.state, allocs)
 	if err != nil {
-		return fmt.Errorf("failed to get tainted nodes for job '%s': %v",
-			s.eval.JobID, err)
+		return fmt.Errorf(
+			"failed to get tainted nodes for job '%s': %v",
+			s.eval.JobID, err,
+		)
 	}
 
 	// Update the allocations which are in pending/running state on tainted
 	// nodes to lost
 	updateNonTerminalAllocsToLost(s.plan, tainted, allocs)
 
-	reconciler := NewAllocReconciler(s.logger,
+	reconciler := NewAllocReconciler(
+		s.logger,
 		genericAllocUpdateFn(s.ctx, s.stack, s.eval.ID),
-		s.batch, s.eval.JobID, s.job, s.deployment, allocs, tainted, s.eval.ID)
-	results := reconciler.Compute()
+		s.batch, s.eval.JobID, s.job, s.deployment, allocs, tainted, s.eval.ID,
+	)
+	results := reconciler.Compute() // todo: this one is interesting, but is it this or the reconciler it uses?
+
+	fmt.Println("SH: reconciliation results")
+	results.ShInplace()
+	results.ShDestructive()
+
 	s.logger.Debug("reconciled current state with desired state", "results", log.Fmt("%#v", results))
 
 	if s.eval.AnnotatePlan {

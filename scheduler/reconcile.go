@@ -27,8 +27,11 @@ const (
 // update, or can be inplace updated. If it can be inplace updated, an updated
 // allocation that has the new resources and alloc metrics attached will be
 // returned.
-type allocUpdateType func(existing *structs.Allocation, newJob *structs.Job,
-	newTG *structs.TaskGroup) (ignore, destructive bool, updated *structs.Allocation)
+type allocUpdateType func(
+	existing *structs.Allocation,
+	newJob *structs.Job,
+	newTG *structs.TaskGroup,
+) (ignore, destructive bool, updated *structs.Allocation)
 
 // allocReconciler is used to determine the set of allocations that require
 // placement, inplace updating or stopping given the job specification and
@@ -117,6 +120,18 @@ type reconcileResults struct {
 	// desiredFollowupEvals is the map of follow up evaluations to create per task group
 	// This is used to create a delayed evaluation for rescheduling failed allocations.
 	desiredFollowupEvals map[string][]*structs.Evaluation
+}
+
+func (rr *reconcileResults) ShInplace() {
+	for _, iu := range rr.inplaceUpdate {
+		fmt.Printf("SH: inplace updateable (name: %s, jobID: %s)\n", iu.Name, iu.JobID)
+	}
+}
+
+func (rr *reconcileResults) ShDestructive() {
+	for _, du := range rr.destructiveUpdate {
+		fmt.Printf("SH: destructive updatable (name: %s, placeName: %s)\n", du.Name(), du.placeName)
+	}
 }
 
 // delayedRescheduleInfo contains the allocation id and a time when its eligible to be rescheduled.
@@ -799,6 +814,7 @@ func (a *allocReconciler) computeStop(group *structs.TaskGroup, nameIndex *alloc
 	return stop
 }
 
+// todo: caller of the compute thing
 // computeUpdates determines which allocations for the passed group require
 // updates. Three groups are returned:
 // 1. Those that require no upgrades
@@ -811,18 +827,37 @@ func (a *allocReconciler) computeUpdates(group *structs.TaskGroup, untainted all
 	inplace = make(map[string]*structs.Allocation)
 	destructive = make(map[string]*structs.Allocation)
 
+	fmt.Printf("SH: ---- computeUpdates for tg [%s] ---- \n", group.Name)
+	for _, task := range group.Tasks {
+		fmt.Printf("  task: %s\n", task.Name)
+		for _, service := range task.Services {
+			fmt.Printf("    service: %s\n", service.Name)
+		}
+	}
+	for _, service := range group.Services {
+		fmt.Printf("  service: %s\n", service.Name)
+	}
+
 	for _, alloc := range untainted {
-		ignoreChange, destructiveChange, inplaceAlloc := a.allocUpdateFn(alloc, a.job, group)
+		fmt.Printf("  computing for untainted alloc: %s, index: %d\n", alloc.Name, alloc.ModifyIndex)
+
+		ignoreChange, destructiveChange, inplaceAlloc := a.allocUpdateFn(alloc, a.job, group) // todo: hihi
+		fmt.Printf("<> computed update for %s, ignore: %t, destruct: %t\n", alloc.Name, ignoreChange, destructiveChange)
+
 		if ignoreChange {
 			ignore[alloc.ID] = alloc
+			fmt.Printf("  ignore alloc: %s, id: %s\n", alloc.Name, alloc.ID)
 		} else if destructiveChange {
 			destructive[alloc.ID] = alloc
+			fmt.Printf("  destroy alloc: %s, id: %s\n", alloc.Name, alloc.ID)
 		} else {
 			inplace[alloc.ID] = alloc
+			fmt.Printf("  inplace alloc: %s, id: %s\n", alloc.Name, alloc.ID)
 			a.result.inplaceUpdate = append(a.result.inplaceUpdate, inplaceAlloc)
 		}
 	}
 
+	fmt.Printf("------\n")
 	return
 }
 

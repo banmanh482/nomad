@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
 	"time"
 
 	"github.com/hashicorp/nomad/nomad/structs"
