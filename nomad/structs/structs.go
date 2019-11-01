@@ -3363,6 +3363,12 @@ type Job struct {
 	// transfer the token and is not stored after Job submission.
 	VaultToken string
 
+	// ConsulToken is the Consul token that proves the submitter of the job has
+	// necessary Consul ACL privileges necessary to create any configured
+	// Consul Connect enabled services. This field is only used to transfer the
+	// token and is not stored after Job submission.
+	ConsulToken string
+
 	// Job status
 	Status string
 
@@ -3711,6 +3717,7 @@ func (j *Job) IsParameterized() bool {
 }
 
 // VaultPolicies returns the set of Vault policies per task group, per task
+// {task-group}=>{task}=>*Vault
 func (j *Job) VaultPolicies() map[string]map[string]*Vault {
 	policies := make(map[string]map[string]*Vault, len(j.TaskGroups))
 
@@ -3731,6 +3738,43 @@ func (j *Job) VaultPolicies() map[string]map[string]*Vault {
 	}
 
 	return policies
+}
+
+type ConnectACL struct {
+	// The per-service part of what will become a service identity token.
+	// We do not need more information than this, since the rest of the policy
+	// is a derivative of these traits.
+	ServiceName string
+	Native      bool
+}
+
+// ConsulConnectACLs returns the set of required ACL permissions required
+// per task group, per task. The necessary ACLs are implicit given the services
+// defined.
+//
+// If Consul does not have ACLs fully enabled, none of this matters. How do we
+// check for that?
+func (j *Job) ConsulConnectACLs() map[string]map[string]ConnectACL {
+	jobACLs := make(map[string]map[string]ConnectACL)
+
+	for _, tg := range j.TaskGroups {
+		tgACLs := make(map[string]ConnectACL)
+
+		for _, s := range tg.Services {
+			if s.Connect != nil {
+				tgACLs[s.Name] = ConnectACL{
+					ServiceName: s.Name,
+					Native:      s.Connect.Native,
+				}
+			}
+		}
+
+		if len(tgACLs) > 0 {
+			jobACLs[tg.Name] = tgACLs
+		}
+	}
+
+	return jobACLs
 }
 
 // RequiredSignals returns a mapping of task groups to tasks to their required

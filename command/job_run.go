@@ -85,7 +85,13 @@ Run Options:
   -vault-token
     If set, the passed Vault token is stored in the job before sending to the
     Nomad servers. This allows passing the Vault token without storing it in
-    the job file. This overrides the token found in $VAULT_TOKEN environment
+    the job file. This overrides the token found in the $VAULT_TOKEN environment
+    variable and that found in the job.
+
+  -consul-token
+    If set, the passed Consul token is stored in the job before sending to the
+    Nomad servers. This allows passing teh Consul token without storing it in
+    the job file. This overrides the token found in the $CONSUL_TOKEN environment
     variable and that found in the job.
 
   -verbose
@@ -118,7 +124,7 @@ func (c *JobRunCommand) Name() string { return "job run" }
 
 func (c *JobRunCommand) Run(args []string) int {
 	var detach, verbose, output, override bool
-	var checkIndexStr, vaultToken string
+	var checkIndexStr, vaultToken, consulToken string
 
 	flags := c.Meta.FlagSet(c.Name(), FlagSetClient)
 	flags.Usage = func() { c.Ui.Output(c.Help()) }
@@ -128,6 +134,7 @@ func (c *JobRunCommand) Run(args []string) int {
 	flags.BoolVar(&override, "policy-override", false, "")
 	flags.StringVar(&checkIndexStr, "check-index", "", "")
 	flags.StringVar(&vaultToken, "vault-token", "", "")
+	flags.StringVar(&consulToken, "consul-token", "", "")
 
 	if err := flags.Parse(args); err != nil {
 		return 1
@@ -183,6 +190,16 @@ func (c *JobRunCommand) Run(args []string) int {
 
 	if vaultToken != "" {
 		job.VaultToken = helper.StringToPtr(vaultToken)
+	}
+
+	// Parse the Consul token
+	if consulToken == "" {
+		// Check the environment variable
+		consulToken = os.Getenv("CONSUL_TOKEN")
+	}
+
+	if consulToken != "" {
+		job.ConsulToken = helper.StringToPtr(consulToken)
 	}
 
 	if output {

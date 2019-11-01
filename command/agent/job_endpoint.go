@@ -634,6 +634,7 @@ func ApiJobToStructJob(job *api.Job) *structs.Job {
 		Payload:     job.Payload,
 		Meta:        job.Meta,
 		VaultToken:  *job.VaultToken,
+		ConsulToken: *job.ConsulToken,
 		Constraints: ApiConstraintsToStructs(job.Constraints),
 		Affinities:  ApiAffinitiesToStructs(job.Affinities),
 	}

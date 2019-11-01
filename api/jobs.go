@@ -671,6 +671,7 @@ type Job struct {
 	Migrate           *MigrateStrategy
 	Meta              map[string]string
 	VaultToken        *string `mapstructure:"vault_token"`
+	ConsulToken       *string `mapstructure:"consul_token"`
 	Status            *string
 	StatusDescription *string
 	Stable            *bool
@@ -724,6 +725,9 @@ func (j *Job) Canonicalize() {
 	}
 	if j.VaultToken == nil {
 		j.VaultToken = stringToPtr("")
+	}
+	if j.ConsulToken == nil {
+		j.ConsulToken = stringToPtr("")
 	}
 	if j.Status == nil {
 		j.Status = stringToPtr("")

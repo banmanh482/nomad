@@ -186,17 +186,17 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 	}
 
 	// Ensure that the job has permissions for the requested Vault tokens
-	policies := args.Job.VaultPolicies()
-	if len(policies) != 0 {
+	vaultPolicies := args.Job.VaultPolicies()
+	if len(vaultPolicies) != 0 {
 		vconf := j.srv.config.VaultConfig
 		if !vconf.IsEnabled() {
-			return fmt.Errorf("Vault not enabled and Vault policies requested")
+			return fmt.Errorf("Vault not enabled and Vault vaultPolicies requested")
 		}
 
 		// Have to check if the user has permissions
 		if !vconf.AllowsUnauthenticated() {
 			if args.Job.VaultToken == "" {
-				return fmt.Errorf("Vault policies requested but missing Vault Token")
+				return fmt.Errorf("Vault vaultPolicies requested but missing Vault Token")
 			}
 
 			vault := j.srv.vault
@@ -210,19 +210,23 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 				return err
 			}
 
-			// If we are given a root token it can access all policies
+			// If we are given a root token it can access all vaultPolicies
 			if !lib.StrContains(allowedPolicies, "root") {
-				flatPolicies := structs.VaultPoliciesSet(policies)
+				flatPolicies := structs.VaultPoliciesSet(vaultPolicies)
 				subset, offending := helper.SliceStringIsSubset(allowedPolicies, flatPolicies)
 				if !subset {
-					return fmt.Errorf("Passed Vault Token doesn't allow access to the following policies: %s",
+					return fmt.Errorf("Passed Vault Token doesn't allow access to the following vaultPolicies: %s",
 						strings.Join(offending, ", "))
 				}
 			}
 		}
 	}
 
-	// Enforce Sentinel policies
+	// todo:
+	connectACLs := args.Job.ConsulConnectACLs()
+	fmt.Println("connect ACLSs:", connectACLs)
+
+	// Enforce Sentinel vaultPolicies
 	policyWarnings, err := j.enforceSubmitJob(args.PolicyOverride, args.Job)
 	if err != nil {
 		return err
