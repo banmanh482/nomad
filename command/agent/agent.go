@@ -189,6 +189,9 @@ func convertServerConfig(agentConfig *Config) (*nomad.Config, error) {
 		conf.EnabledSchedulers = schedulers
 
 	}
+	if agentConfig.Server.EnforceConnectACLs != "" {
+		conf.EnforceConnectACLs = agentConfig.Server.EnforceConnectACLs
+	}
 	if agentConfig.ACL.Enabled {
 		conf.ACLEnabled = true
 	}

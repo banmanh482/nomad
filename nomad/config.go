@@ -26,6 +26,10 @@ const (
 	DefaultSerfPort = 4648
 )
 
+const (
+	DefaultEnforceConnectACLs = "disabled"
+)
+
 // These are the protocol versions that Nomad can understand
 const (
 	ProtocolVersionMin uint8 = 1
@@ -258,6 +262,10 @@ type Config struct {
 	// ACLEnabled controls if ACL enforcement and management is enabled.
 	ACLEnabled bool
 
+	// EnforceConnectACLs controls whether job submitters must provide Consul ACL
+	// tokens of sufficient privileges when managing Connect-enabled services.
+	EnforceConnectACLs string
+
 	// ReplicationBackoff is how much we backoff when replication errors.
 	// This is a tunable knob for testing primarily.
 	ReplicationBackoff time.Duration
@@ -362,6 +370,7 @@ func DefaultConfig() *Config {
 		FailoverHeartbeatTTL:             300 * time.Second,
 		ConsulConfig:                     config.DefaultConsulConfig(),
 		VaultConfig:                      config.DefaultVaultConfig(),
+		EnforceConnectACLs:               DefaultEnforceConnectACLs,
 		RPCHoldTimeout:                   5 * time.Second,
 		StatsCollectionInterval:          1 * time.Minute,
 		TLSConfig:                        &config.TLSConfig{},

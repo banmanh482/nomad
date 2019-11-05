@@ -17,6 +17,12 @@ import (
 // - Bootstrap this Nomad Client with the list of Nomad Servers registered
 //   with Consul
 //
+// - Validate ACLs for Nomad Operators submitting jobs with Consul Connect
+//   enabled services.
+//
+// - Create Service Identity Tokens on behalf of Nomad Agents running
+//   Consul Connect enabled services.
+//
 // Both the Agent and the executor need to be able to import ConsulConfig.
 type ConsulConfig struct {
 	// ServerServiceName is the name of the service that Nomad uses to register

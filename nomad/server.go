@@ -377,6 +377,9 @@ func NewServer(config *Config, consulCatalog consul.CatalogAPI) (*Server, error)
 		return nil, fmt.Errorf("failed to create server Consul syncer: %v", err)
 	}
 
+	// todo: figure out what to do with this value
+	s.logger.Trace("enforce consul connect ACLs", "value", s.config.EnforceConnectACLs)
+
 	// Setup the deployment watcher.
 	if err := s.setupDeploymentWatcher(); err != nil {
 		s.logger.Error("failed to create deployment watcher", "error", err)

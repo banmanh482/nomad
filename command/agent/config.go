@@ -328,6 +328,10 @@ type ACLConfig struct {
 
 // ServerConfig is configuration specific to the server mode
 type ServerConfig struct {
+	// EnforceConnectACLs controls whether job submitters must provide Consul ACL
+	// tokens of sufficient privileges when managing Connect-enabled services.
+	EnforceConnectACLs string `hcl:"enforce_connect_acls"`
+
 	// Enabled controls if we are a server
 	Enabled bool `hcl:"enabled"`
 
@@ -1335,6 +1339,9 @@ func (a *ServerConfig) Merge(b *ServerConfig) *ServerConfig {
 	}
 	if b.ServerJoin != nil {
 		result.ServerJoin = result.ServerJoin.Merge(b.ServerJoin)
+	}
+	if b.EnforceConnectACLs != "" {
+		result.EnforceConnectACLs = b.EnforceConnectACLs
 	}
 
 	// Add the schedulers
