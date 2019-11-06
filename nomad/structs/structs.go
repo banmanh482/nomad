@@ -3748,6 +3748,10 @@ type ConnectACL struct {
 	Native      bool
 }
 
+func (c ConnectACL) String() string {
+	return fmt.Sprintf("(%s, %t)", c.ServiceName, c.Native)
+}
+
 // ConsulConnectACLs returns the set of required ACL permissions required
 // per task group, per task. The necessary ACLs are implicit given the services
 // defined.

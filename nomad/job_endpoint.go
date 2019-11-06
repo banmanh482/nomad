@@ -11,6 +11,7 @@ import (
 	log "github.com/hashicorp/go-hclog"
 	memdb "github.com/hashicorp/go-memdb"
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 
 	"github.com/golang/snappy"
 	"github.com/hashicorp/consul/lib"
@@ -222,9 +223,9 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 		}
 	}
 
-	// todo:
-	connectACLs := args.Job.ConsulConnectACLs()
-	fmt.Println("connect ACLSs:", connectACLs)
+	if err := j.enforceConnectACLs(args.Job); err != nil {
+		return err
+	}
 
 	// Enforce Sentinel vaultPolicies
 	policyWarnings, err := j.enforceSubmitJob(args.PolicyOverride, args.Job)
@@ -298,6 +299,29 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 	reply.EvalID = eval.ID
 	reply.EvalCreateIndex = evalIndex
 	reply.Index = evalIndex
+	return nil
+}
+
+func (j *Job) enforceConnectACLs(job *structs.Job) error {
+	switch on := j.srv.config.EnforceConnectACLs; on {
+	case "enabled":
+		jobACLs := job.ConsulConnectACLs()
+		return j.checkConnectACLs(jobACLs)
+	case "disabled":
+		return nil
+	default:
+		return errors.Errorf("unrecognized value for enforce_connect_acls: %q", on)
+	}
+}
+
+func (j *Job) checkConnectACLs(jobACLs map[string]map[string]structs.ConnectACL) error {
+
+	for tgName, m := range jobACLs {
+		for k, v := range m {
+			fmt.Printf("Job.checkConnectACLS: %s => %s => %v", tgName, k, v)
+		}
+	}
+
 	return nil
 }
 
