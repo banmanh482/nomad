@@ -523,8 +523,10 @@ func (n *Node) UpdateDrain(args *structs.NodeUpdateDrainRequest,
 		return fmt.Errorf("node not found")
 	}
 
+	now := time.Now().UTC()
+
 	// Update the timestamp of when the node status was updated
-	args.UpdatedAt = time.Now().Unix()
+	args.UpdatedAt = now.Unix()
 
 	// COMPAT: Remove in 0.9. Attempt to upgrade the request if it is of the old
 	// format.
@@ -536,18 +538,19 @@ func (n *Node) UpdateDrain(args *structs.NodeUpdateDrainRequest,
 		}
 	}
 
-	// Mark start time for the drain
+	// Setup drain strategy
 	if args.DrainStrategy != nil {
-		if node.DrainStrategy == nil || node.DrainStrategy.StartedAt.IsZero() {
-			args.DrainStrategy.StartedAt = time.Now().UTC()
+		// Check if the node is already draining so we don't overwrite existing values
+		if node.DrainStrategy == nil {
+			args.DrainStrategy.StartedAt = now
+
+			if args.DrainStrategy.Deadline.Nanoseconds() > 0 {
+				args.DrainStrategy.ForceDeadline = now.Add(args.DrainStrategy.Deadline)
+			}
 		} else {
 			args.DrainStrategy.StartedAt = node.DrainStrategy.StartedAt
+			args.DrainStrategy.ForceDeadline = node.DrainStrategy.ForceDeadline
 		}
-	}
-
-	// Mark the deadline time
-	if args.DrainStrategy != nil && args.DrainStrategy.Deadline.Nanoseconds() > 0 {
-		args.DrainStrategy.ForceDeadline = time.Now().Add(args.DrainStrategy.Deadline).UTC()
 	}
 
 	// Construct the node event

@@ -900,22 +900,24 @@ func TestClientEndpoint_UpdateDrain(t *testing.T) {
 	require.Len(out.Events, 2)
 	require.Equal(NodeDrainEventDrainSet, out.Events[1].Message)
 
+	forcedDeadline := out.DrainStrategy.ForceDeadline
 	// before+deadline should be before the forced deadline
-	require.True(beforeUpdate.Add(strategy.Deadline).Before(out.DrainStrategy.ForceDeadline))
+	require.True(beforeUpdate.Add(strategy.Deadline).Before(forcedDeadline))
 
 	// now+deadline should be after the forced deadline
-	require.True(time.Now().Add(strategy.Deadline).After(out.DrainStrategy.ForceDeadline))
+	require.True(time.Now().Add(strategy.Deadline).After(forcedDeadline))
 
 	drainStartedAt := out.DrainStrategy.StartedAt
 	// StartedAt should be close to the time the drain started
-	require.WithinDuration(beforeUpdate, out.DrainStrategy.StartedAt, 1*time.Second)
+	require.WithinDuration(beforeUpdate, drainStartedAt, 1*time.Second)
 
-	// StartedAt shouldn't change if a new request comes while still draining
+	// StartedAt and ForceDeadline shouldn't change if a new request comes while still draining
 	require.Nil(msgpackrpc.CallWithCodec(codec, "Node.UpdateDrain", dereg, &resp2))
 	ws = memdb.NewWatchSet()
 	out, err = state.NodeByID(ws, node.ID)
 	require.NoError(err)
 	require.True(out.DrainStrategy.StartedAt.Equal(drainStartedAt))
+	require.True(out.DrainStrategy.ForceDeadline.Equal(forcedDeadline))
 
 	// Register a system job
 	job := mock.SystemJob()
