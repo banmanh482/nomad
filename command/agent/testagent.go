@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -100,6 +99,8 @@ func NewTestAgent(t testing.T, name string, configCallback func(*Config)) *TestA
 
 // Start starts a test agent.
 func (a *TestAgent) Start() *TestAgent {
+	fmt.Println("SH TestAgent.Start")
+
 	if a.Agent != nil {
 		a.T.Fatalf("TestAgent already started")
 	}
@@ -125,10 +126,17 @@ func (a *TestAgent) Start() *TestAgent {
 
 RETRY:
 	for ; i >= 0; i-- {
+		fmt.Println("SH: try i:", i, "nodename:", a.Config.NodeName)
 		a.pickRandomPorts(a.Config)
 		if a.Config.NodeName == "" {
 			a.Config.NodeName = fmt.Sprintf("Node %d", a.Config.Ports.RPC)
 		}
+
+		fmt.Println("TA.pickRandomPorts assignment for", a.Config.NodeName,
+			"http ", a.Config.Ports.HTTP,
+			"rpc  ", a.Config.Ports.RPC,
+			"serf ", a.Config.Ports.Serf,
+		)
 
 		// write the keyring
 		if a.Key != "" {
@@ -144,14 +152,18 @@ RETRY:
 		// we need the err var in the next exit condition
 		if agent, err := a.start(); err == nil {
 			a.Agent = agent
+			fmt.Println("  i:", i, "breaking", a.Name, "with err:", err)
 			break
 		} else if i == 0 {
 			a.T.Logf("%s: Error starting agent: %v", a.Name, err)
-			runtime.Goexit()
+			fmt.Println("  i:", i, "exit", a.Name, "with error", err)
+			// runtime.Goexit()
+			a.T.Fail()
 		} else {
 			if agent != nil {
 				agent.Shutdown()
 			}
+			fmt.Println("  i:", i, "retry in 2s, agent:", a.Name)
 			wait := time.Duration(rand.Int31n(2000)) * time.Millisecond
 			a.T.Logf("%s: retrying in %v", a.Name, wait)
 			time.Sleep(wait)
@@ -163,13 +175,16 @@ RETRY:
 		if a.DataDir != "" {
 			if err := os.RemoveAll(a.DataDir); err != nil {
 				a.T.Logf("%s: Error resetting data dir: %v", a.Name, err)
-				runtime.Goexit()
+				fmt.Println("  i:", i, "exit data dir error", a.Name, err)
+				a.T.Fail()
 			}
 		}
 	}
 
 	failed := false
 	if a.Config.NomadConfig.Bootstrap && a.Config.Server.Enabled {
+		fmt.Println("SH wait for RPC", a.Config.NodeName)
+
 		testutil.WaitForResult(func() (bool, error) {
 			args := &structs.GenericRequest{}
 			var leader string
@@ -180,6 +195,8 @@ RETRY:
 			failed = true
 		})
 	} else {
+		fmt.Println("SH wait for self request", a.Config.NodeName)
+
 		testutil.WaitForResult(func() (bool, error) {
 			req, _ := http.NewRequest("GET", "/v1/agent/self", nil)
 			resp := httptest.NewRecorder()
@@ -192,6 +209,7 @@ RETRY:
 	}
 	if failed {
 		a.Agent.Shutdown()
+		fmt.Println("  i:", i, "failed", a.Name, "goto RETRY")
 		goto RETRY
 	}
 
@@ -202,9 +220,12 @@ RETRY:
 		a.RootToken = mock.ACLManagementToken()
 		state := a.Agent.server.State()
 		if err := state.BootstrapACLTokens(1, 0, a.RootToken); err != nil {
+			fmt.Println("  i:", i, "bootstrap failed:", a.Name, err)
 			a.T.Fatalf("token bootstrap failed: %v", err)
 		}
 	}
+
+	fmt.Println("  i:", i, "success, returning agent", a.Name)
 	return a
 }
 
@@ -245,7 +266,6 @@ func (a *TestAgent) start() (*Agent, error) {
 // Shutdown stops the agent and removes the data directory if it is
 // managed by the test agent.
 func (a *TestAgent) Shutdown() error {
-	defer freeport.Return(a.ports)
 
 	defer func() {
 		if a.DataDir != "" {
@@ -263,6 +283,8 @@ func (a *TestAgent) Shutdown() error {
 
 	select {
 	case err := <-ch:
+		freeport.Return(a.ports) // give ports back after server is stopped
+		fmt.Println("SH TestAgent.Shutdown", a.Name, "return", a.ports)
 		return err
 	case <-time.After(1 * time.Minute):
 		return fmt.Errorf("timed out while shutting down test agent")
@@ -296,11 +318,11 @@ func (a *TestAgent) Client() *api.Client {
 // starting the agent with different ports on port conflict.
 func (a *TestAgent) pickRandomPorts(c *Config) {
 	ports := freeport.MustTake(3)
-	a.ports = append(a.ports, ports...)
-
+	fmt.Println("TA.pickRandomPorts allocation", "port0", ports[0], "port1", ports[1], "port2", ports[2])
 	c.Ports.HTTP = ports[0]
 	c.Ports.RPC = ports[1]
 	c.Ports.Serf = ports[2]
+	a.ports = append(a.ports, ports...)
 
 	// Clear out the advertise addresses such that through retries we
 	// re-normalize the addresses correctly instead of using the values from the
@@ -314,6 +336,8 @@ func (a *TestAgent) pickRandomPorts(c *Config) {
 	if err := c.normalizeAddrs(); err != nil {
 		a.T.Fatalf("error normalizing config: %v", err)
 	}
+
+	fmt.Println("TA.normalized http:", a.Config.AdvertiseAddrs.HTTP, "rpc", a.Config.AdvertiseAddrs.RPC, "serf", a.Config.AdvertiseAddrs.Serf)
 }
 
 // TestConfig returns a unique default configuration for testing an

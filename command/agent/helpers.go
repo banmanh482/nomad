@@ -1,5 +1,7 @@
 package agent
 
+import "fmt"
+
 // rpcHandlerForAlloc is a helper that given an allocation ID returns whether to
 // use the local clients RPC, the local clients remote RPC or the server on the
 // agent.
@@ -25,6 +27,8 @@ func (s *HTTPServer) rpcHandlerForAlloc(allocID string) (localClient, remoteClie
 	// Use the server as a last case.
 	useServerRPC := !localAlloc && !useClientRPC && srv != nil
 
+	n := s.agent.config.NodeName
+	fmt.Println("SH HTTPServer.rpcHandlerForAlloc", n, "localAlloc:", localAlloc, "useClientRPC:", useClientRPC, "useServerRPC", useServerRPC)
 	return localAlloc, useClientRPC, useServerRPC
 }
 

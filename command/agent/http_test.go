@@ -683,7 +683,10 @@ func httpTest(t testing.TB, cb func(c *Config), f func(srv *TestAgent)) {
 	s := makeHTTPServer(t, cb)
 	defer s.Shutdown()
 	testutil.WaitForLeader(t, s.Agent.RPC)
+
+	fmt.Println("enter f(s), node_name:", s.Name)
 	f(s)
+	fmt.Println("exit f(s), node_name:", s.Name)
 }
 
 func httpACLTest(t testing.TB, cb func(c *Config), f func(srv *TestAgent)) {

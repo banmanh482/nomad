@@ -725,19 +725,23 @@ func TestHTTP_AllocSnapshot_Atomic(t *testing.T) {
 
 func TestHTTP_AllocGC(t *testing.T) {
 	t.Parallel()
-	require := require.New(t)
+
 	path := fmt.Sprintf("/v1/client/allocation/%s/gc", uuid.Generate())
+
 	httpTest(t, nil, func(s *TestAgent) {
+
 		// Local node, local resp
 		{
 			req, err := http.NewRequest("GET", path, nil)
 			if err != nil {
+				fmt.Println("AAA", err)
 				t.Fatalf("err: %v", err)
 			}
 
 			respW := httptest.NewRecorder()
 			_, err = s.Server.ClientAllocRequest(respW, req)
 			if !structs.IsErrUnknownAllocation(err) {
+				fmt.Println("BBB:", err)
 				t.Fatalf("unexpected err: %v", err)
 			}
 		}
@@ -749,12 +753,14 @@ func TestHTTP_AllocGC(t *testing.T) {
 
 			req, err := http.NewRequest("GET", path, nil)
 			if err != nil {
+				fmt.Println("CCC:", err)
 				t.Fatalf("err: %v", err)
 			}
 
 			respW := httptest.NewRecorder()
 			_, err = s.Server.ClientAllocRequest(respW, req)
 			if !structs.IsErrUnknownAllocation(err) {
+				fmt.Println("DDD:", err)
 				t.Fatalf("unexpected err: %v", err)
 			}
 
@@ -773,18 +779,21 @@ func TestHTTP_AllocGC(t *testing.T) {
 				}
 				return n != nil, nil
 			}, func(err error) {
+				fmt.Println("EEE:", err)
 				t.Fatalf("should have client: %v", err)
 			})
 
 			req, err := http.NewRequest("GET", path, nil)
 			if err != nil {
+				fmt.Println("FFF:", err)
 				t.Fatalf("err: %v", err)
 			}
 
 			respW := httptest.NewRecorder()
 			_, err = s.Server.ClientAllocRequest(respW, req)
-			require.NotNil(err)
+			require.NotNil(t, err)
 			if !structs.IsErrUnknownAllocation(err) {
+				fmt.Println("GGG:", err)
 				t.Fatalf("unexpected err: %v", err)
 			}
 
