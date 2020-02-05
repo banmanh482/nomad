@@ -227,6 +227,8 @@ func (s *SystemScheduler) computeJobAllocs() error {
 	}
 
 	// Attempt to do the upgrades in place
+	//
+	// TODO(shoenig): SystemSchedular, can only system jobs be in-place updated ?
 	destructiveUpdates, inplaceUpdates := inplaceUpdate(s.ctx, s.eval, s.job, s.stack, diff.update)
 	diff.update = destructiveUpdates
 

@@ -545,6 +545,8 @@ func setStatus(logger log.Logger, planner Planner,
 
 // inplaceUpdate attempts to update allocations in-place where possible. It
 // returns the allocs that couldn't be done inplace and then those that could.
+//
+// TODO(shoenig): how does this interact with the other use of tasksUpdated ?
 func inplaceUpdate(ctx Context, eval *structs.Evaluation, job *structs.Job,
 	stack Stack, updates []allocTuple) (destructive, inplace []allocTuple) {
 
@@ -566,6 +568,8 @@ func inplaceUpdate(ctx Context, eval *structs.Evaluation, job *structs.Job,
 
 		// Check if the task drivers or config has changed, requires
 		// a rolling upgrade since that cannot be done in-place.
+		//
+		// TODO(shoenig): oh interesting
 		existing := update.Alloc.Job
 		if tasksUpdated(job, existing, update.TaskGroup.Name) {
 			continue
@@ -844,6 +848,8 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 
 		// Check if the task drivers or config has changed, requires
 		// a destructive upgrade since that cannot be done in-place.
+		//
+		// TODO(shoenig): detect chagnes to connect stanza
 		if tasksUpdated(newJob, existing.Job, newTG.Name) {
 			return false, true, nil
 		}

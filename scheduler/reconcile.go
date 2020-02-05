@@ -41,7 +41,7 @@ type allocReconciler struct {
 	// minimal here
 	logger log.Logger
 
-	// canInplace is used to check if the allocation can be inplace upgraded
+	// allocUpdateFn is used to check if the allocation can be inplace upgraded
 	allocUpdateFn allocUpdateType
 
 	// batch marks whether the job is a batch job
