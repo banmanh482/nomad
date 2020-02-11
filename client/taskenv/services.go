@@ -6,6 +6,8 @@ import (
 
 // InterpolateServices returns an interpolated copy of services and checks with
 // values from the task's environment.
+//
+// todo: prooobbably do not need to touch this. a service is a service, right?
 func InterpolateServices(taskEnv *TaskEnv, services []*structs.Service) []*structs.Service {
 	// Guard against not having a valid taskEnv. This can be the case if the
 	// PreKilling or Exited hook is run before Poststart.

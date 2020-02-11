@@ -1,6 +1,7 @@
 package allocrunner
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -46,6 +47,9 @@ type groupServiceHookConfig struct {
 }
 
 func newGroupServiceHook(cfg groupServiceHookConfig) *groupServiceHook {
+	fmt.Printf("newGroupServiceHook(%s)\n", cfg.alloc.Name)
+	defer fmt.Printf("exit newGroupServiceHook(%s)\n", cfg.alloc.Name)
+
 	var shutdownDelay time.Duration
 	tg := cfg.alloc.Job.LookupTaskGroup(cfg.alloc.TaskGroup)
 
@@ -61,8 +65,11 @@ func newGroupServiceHook(cfg groupServiceHookConfig) *groupServiceHook {
 		taskEnvBuilder: cfg.taskEnvBuilder,
 		delay:          shutdownDelay,
 	}
+
 	h.logger = cfg.logger.Named(h.Name())
+
 	h.services = cfg.alloc.Job.LookupTaskGroup(h.group).Services
+	// hmm, what about sidecar_service up in here?
 
 	if cfg.alloc.AllocatedResources != nil {
 		h.networks = cfg.alloc.AllocatedResources.Shared.Networks
@@ -91,13 +98,19 @@ func (h *groupServiceHook) Prerun() error {
 	}
 
 	services := h.getWorkloadServices()
-	return h.consulClient.RegisterWorkload(services)
+	return h.consulClient.RegisterWorkload(services) // ooohh
 }
 
 func (h *groupServiceHook) Update(req *interfaces.RunnerUpdateRequest) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+	fmt.Printf("groupServiceHook.Update group(%s), req.alloc(%s)\n", h.group, req.Alloc.Name)
+	defer fmt.Printf("exit groupServiceHook.Update group(%s), req.alloc(%s)\n", h.group, req.Alloc.Name)
+
 	oldWorkloadServices := h.getWorkloadServices()
+	fmt.Println("groupServiceHook.Update, oldWorkloadServices...")
+	oldWorkloadServices.Print()
 
 	// Store new updated values out of request
 	canary := false
@@ -118,6 +131,8 @@ func (h *groupServiceHook) Update(req *interfaces.RunnerUpdateRequest) error {
 
 	// Create new task services struct with those new values
 	newWorkloadServices := h.getWorkloadServices()
+	fmt.Println("groupServiceHook.Update, newWorkloadServices...")
+	newWorkloadServices.Print()
 
 	if !h.prerun {
 		// Update called before Prerun. Update alloc and exit to allow
@@ -125,7 +140,7 @@ func (h *groupServiceHook) Update(req *interfaces.RunnerUpdateRequest) error {
 		return nil
 	}
 
-	return h.consulClient.UpdateWorkload(oldWorkloadServices, newWorkloadServices)
+	return h.consulClient.UpdateWorkload(oldWorkloadServices, newWorkloadServices) // ahhh
 }
 
 func (h *groupServiceHook) PreKill() {
@@ -189,6 +204,12 @@ func (h *groupServiceHook) deregister() {
 }
 
 func (h *groupServiceHook) getWorkloadServices() *agentconsul.WorkloadServices {
+
+	fmt.Println("groupServiceHook.getWorkloadServices, h.services ...")
+	for _, service := range h.services {
+		fmt.Printf("  service(%s) tags: %v\n", service.Name, service.Tags)
+	}
+
 	// Interpolate with the task's environment
 	interpolatedServices := taskenv.InterpolateServices(h.taskEnvBuilder.Build(), h.services)
 

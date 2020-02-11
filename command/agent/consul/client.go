@@ -106,7 +106,15 @@ type ACLsAPI interface {
 	TokenList(q *api.QueryOptions) ([]*api.ACLTokenListEntry, *api.QueryMeta, error)
 }
 
+// svc.Connect is always nil ...
 func agentServiceUpdateRequired(reg *api.AgentServiceRegistration, svc *api.AgentService) bool {
+
+	// lmao, we need to compare connect, i think
+	// also this function is all different now, after my previous PR
+
+	fmt.Printf("ASUR reg.Connect: %#v, svc.Connect: %#v\n", reg.Connect, svc.Connect)
+	// awww yeah, we are comparing apples and oranges
+
 	return !(reg.Kind == svc.Kind &&
 		reg.ID == svc.ID &&
 		reg.Port == svc.Port &&
@@ -363,6 +371,7 @@ INIT:
 			// Cancel check watcher but sync one last time
 			cancel()
 		case ops := <-c.opCh:
+			fmt.Printf("ServiceClient.Run (normal), merge ops\n")
 			c.merge(ops)
 		}
 
@@ -443,6 +452,8 @@ func (c *ServiceClient) clearExplicitlyDeregistered() {
 func (c *ServiceClient) merge(ops *operations) {
 	for _, s := range ops.regServices {
 		c.services[s.ID] = s
+		fmt.Printf("ServiceClient.merge, sID: %s\n", s.ID)
+		// the bug is probably in sync
 	}
 	for _, check := range ops.regChecks {
 		c.checks[check.ID] = check
@@ -468,6 +479,19 @@ func (c *ServiceClient) sync() error {
 		metrics.IncrCounter([]string{"client", "consul", "sync_failure"}, 1)
 		return fmt.Errorf("error querying Consul services: %v", err)
 	}
+
+	// sanity check the connect stuff is in the connect service ID
+	// ... and not under the tg service ID (i.e. they are independent as far as consul's Agent API is concerned)
+	asConnect := func(as *api.AgentService) string {
+		// we want the .Proxy field, not the .Connect field (!)
+		return fmt.Sprintf("[tags: %v, proxy: %#v]", as.Tags, as.Proxy)
+	}
+	for _, cService := range consulServices {
+		fmt.Printf("SC.sync, cService.ID: %s, conn ect: %s\n", cService.ID, asConnect(cService))
+	}
+	// okay yes, this contains as predicted (independence)
+	// soo.. we need to split the connect.service stanza from the tg.service stanza
+	// before plumbing through to consul, so that we are comparing apples to apples
 
 	consulChecks, err := c.client.Checks()
 	if err != nil {
@@ -518,20 +542,35 @@ func (c *ServiceClient) sync() error {
 	}
 
 	// Add Nomad services missing from Consul, or where the service has been updated.
-	for id, locals := range c.services {
-		existingSvc, ok := consulServices[id]
+	for id, serviceInNomad := range c.services {
+
+		// serviceInNomad includes its Connect sidecar service (if it exists),
+		// but Consul's agent API exposes these independently. Looks like we'll
+		// need to be smart and split up so we can do a proper diff
+
+		serviceInConsulAgent, ok := consulServices[id]
+		if serviceInNomad.Connect != nil {
+			if sidecar, ok := consulServices[id+"-sidecar-proxy"]; ok {
+				//				sidecarInConsulAgent = sidecar
+				fmt.Printf("$sync, %s has sidecar, id: %s, sidecar.tags: %v\n", serviceInNomad.Name, sidecar.Service, sidecar.Tags)
+				fmt.Printf("   the nomad connect.sidecar.tags: %v\n", serviceInNomad.Connect.SidecarService.Tags)
+			}
+		}
+
+		// okay so we have a diff on the sidecar!, now what?
+		// YOU ARE HERE.
 
 		if ok {
 			// There is an existing registration of this service in Consul, so here
 			// we validate to see if the service has been invalidated to see if it
 			// should be updated.
-			if !agentServiceUpdateRequired(locals, existingSvc) {
+			if !agentServiceUpdateRequired(serviceInNomad, serviceInConsulAgent) {
 				// No Need to update services that have not changed
 				continue
 			}
 		}
 
-		if err = c.client.ServiceRegister(locals); err != nil {
+		if err = c.client.ServiceRegister(serviceInNomad); err != nil {
 			metrics.IncrCounter([]string{"client", "consul", "sync_failure"}, 1)
 			return err
 		}
@@ -726,6 +765,8 @@ func (c *ServiceClient) serviceRegs(ops *operations, service *structs.Service, w
 	if err != nil {
 		return nil, fmt.Errorf("invalid Consul Connect configuration for service %q: %v", service.Name, err)
 	}
+	fmt.Printf("ServiceClient.serviceRegs, service: %s, workload.group: %s\n", service.Name, workload.Group)
+	fmt.Printf("  connect.sidecar.name: %s, tags: %v\n", connect.SidecarService.Name, connect.SidecarService.Tags)
 
 	// Determine whether to use meta or canary_meta
 	var meta map[string]string
@@ -755,6 +796,9 @@ func (c *ServiceClient) serviceRegs(ops *operations, service *structs.Service, w
 		Connect: connect, // will be nil if no Connect stanza
 	}
 	ops.regServices = append(ops.regServices, serviceReg)
+
+	fmt.Printf("append serviceReg ID: %s, name: %s, connect.SS.tags: %v\n", id, service.Name, connect.SidecarService.Tags)
+	// TODO: we are actually in a good place here, so what is going wrong??
 
 	// Build the check registrations
 	checkIDs, err := c.checkRegs(ops, id, service, workload)
@@ -826,6 +870,9 @@ func (c *ServiceClient) checkRegs(ops *operations, serviceID string, service *st
 //
 // Actual communication with Consul is done asynchronously (see Run).
 func (c *ServiceClient) RegisterWorkload(workload *WorkloadServices) error {
+	fmt.Printf("ServiceClient.RegisterWorkload (group: %s) ... \n", workload.Group)
+	workload.Print()
+
 	// Fast path
 	numServices := len(workload.Services)
 	if numServices == 0 {
@@ -867,20 +914,48 @@ func (c *ServiceClient) RegisterWorkload(workload *WorkloadServices) error {
 // changed.
 //
 // DriverNetwork must not change between invocations for the same allocation.
+//
+// TODO: the bug is in here, it is not connect aware basically. RegisterWorkload works.
 func (c *ServiceClient) UpdateWorkload(old, newWorkload *WorkloadServices) error {
-	ops := &operations{}
-
+	ops := new(operations)
 	regs := new(ServiceRegistrations)
 	regs.Services = make(map[string]*ServiceRegistration, len(newWorkload.Services))
+
+	fmt.Printf(" ServiceClient.UpdateWorkload, old (group: %s)\n", old.Group)
+	old.Print()
+
+	fmt.Printf(" * ServiceClient.UpdateWorkload, new (group: %s)\n", newWorkload.Group)
+	newWorkload.Print() // TODO: we are okay at this point
+	// ---------------------------------
 
 	existingIDs := make(map[string]*structs.Service, len(old.Services))
 	for _, s := range old.Services {
 		existingIDs[MakeAllocServiceID(old.AllocID, old.Name(), s)] = s
 	}
+
 	newIDs := make(map[string]*structs.Service, len(newWorkload.Services))
 	for _, s := range newWorkload.Services {
 		newIDs[MakeAllocServiceID(newWorkload.AllocID, newWorkload.Name(), s)] = s
 	}
+
+	// todo: we have not accounted for connect services by here ...
+	//   should we extract them out of each service in-line?
+	//   or should we extract them separately?
+	//   actually, we do still have the sidecar by this point (lets double check)
+	for eID, service := range existingIDs {
+		fmt.Printf("   eID[%s]: %s, connect.tags: %v\n", eID, service.Name, service.Connect.SidecarService.Tags)
+	}
+
+	for nID, service := range newIDs {
+		fmt.Printf("   nID[%s]: %s, connect.tags: %v\n", nID, service.Name, service.Connect.SidecarService.Tags)
+	}
+
+	// yep, we are good at this point
+	// WorkloadServices, Group: mygroup
+	// service(myservice) tags: []
+	// service.connect.SS.tags: [some new ones]
+	// eID[_nomad-task-9c844479-5d71-3e06-164e-cd4fac8d98be-group-mygroup-myservice-9001]: myservice, connect.tags: [original tags]
+	// nID[_nomad-task-9c844479-5d71-3e06-164e-cd4fac8d98be-group-mygroup-myservice-9001]: myservice, connect.tags: [some new ones]
 
 	// Loop over existing Service IDs to see if they have been removed
 	for existingID, existingSvc := range existingIDs {
@@ -903,17 +978,41 @@ func (c *ServiceClient) UpdateWorkload(old, newWorkload *WorkloadServices) error
 
 		oldHash := existingSvc.Hash(old.AllocID, old.Name(), old.Canary)
 		newHash := newSvc.Hash(newWorkload.AllocID, newWorkload.Name(), newWorkload.Canary)
+		fmt.Printf("oldHash: %s\n", oldHash)
+		fmt.Printf("newHash: %s\n", newHash) // we hash the whole thing now .... maybe connect should be split
 		if oldHash == newHash {
 			// Service exists and hasn't changed, don't re-add it later
 			delete(newIDs, existingID)
 		}
 
-		// Service still exists so add it to the task's registration
-		sreg := &ServiceRegistration{
+		// Service still exists so add it
+		sReg := &ServiceRegistration{
 			serviceID: existingID,
 			checkIDs:  make(map[string]struct{}, len(newSvc.Checks)),
 		}
-		regs.Services[existingID] = sreg
+		regs.Services[existingID] = sReg
+
+		// todo: is this on the right track?
+		// if there is a sidecar service associated with the service, register that also
+		// this is not managed explicitly in register or deregister, so we probably
+		// should not manage it manually here either. it's part of the parent service def
+		//
+		// although ... maybe reg/dereg are special cases? when we go to update the
+		// connect task, we are comparing against the existing consul agent definition,
+		// which is (mostly) disjoint between the service and service-sidecar-proxy
+		//
+		// so, i think we need to "split" the service here, and plumb the sidecar
+		// service independently, which can then be compared to that independent sidecar
+		// service def on the agent
+		//
+		//if newSvc.Connect != nil && newSvc.Connect.SidecarService != nil {
+		//	sidecarID := existingID + "-sidecar-proxy"
+		//	regs.Services[sidecarID] = &ServiceRegistration{
+		//		serviceID: sidecarID,
+		//	}
+		//	newIDs = append(newIDs, sidecarID)
+		//	fmt.Println("appending sidecar proxy:", sidecarID)
+		//}
 
 		// See if any checks were updated
 		existingChecks := make(map[string]*structs.ServiceCheck, len(existingSvc.Checks))
@@ -928,17 +1027,18 @@ func (c *ServiceClient) UpdateWorkload(old, newWorkload *WorkloadServices) error
 				// Check is still required. Remove it from the map so it doesn't get
 				// deleted later.
 				delete(existingChecks, checkID)
-				sreg.checkIDs[checkID] = struct{}{}
+				sReg.checkIDs[checkID] = struct{}{}
 			}
 
 			// New check on an unchanged service; add them now
 			newCheckIDs, err := c.checkRegs(ops, existingID, newSvc, newWorkload)
 			if err != nil {
+				fmt.Printf("ServiceClient.UpdateWorkload early return (checkRegs=>%v)\n", err)
 				return err
 			}
 
 			for _, checkID := range newCheckIDs {
-				sreg.checkIDs[checkID] = struct{}{}
+				sReg.checkIDs[checkID] = struct{}{}
 			}
 
 			// Update all watched checks as CheckRestart fields aren't part of ID
@@ -959,6 +1059,8 @@ func (c *ServiceClient) UpdateWorkload(old, newWorkload *WorkloadServices) error
 	}
 
 	// Any remaining services should just be enqueued directly
+	fmt.Printf("ServiceClient.UpdateWorkload, remaining services IDs: %v\n", newIDs)
+	// this is empty, but that may be expected (just want new ones here)
 	for _, newSvc := range newIDs {
 		sreg, err := c.serviceRegs(ops, newSvc, newWorkload)
 		if err != nil {
@@ -968,8 +1070,30 @@ func (c *ServiceClient) UpdateWorkload(old, newWorkload *WorkloadServices) error
 		regs.Services[sreg.serviceID] = sreg
 	}
 
-	// Add the task to the allocation's registration
+	// wait, is regs fine all the way down here? perhaps! lets look
+	// but wait, serviceRegs adds things to ops, so that might not be good enough?
+	//
+	// interesting, my service is named by ID, but the content is nil
+	// @ service: &consul.ServiceRegistration{
+	//                serviceID:"_nomad-task-c983c35e-39d2-9218-bd31-585e3667de73-group-mygroup-myservice-9001",
+	//                checkIDs:map[string]struct {}{},
+	//                Service:(*api.AgentService)(nil),
+	//                Checks:[]*api.AgentCheck(nil)}
+	//
+	// the connect service is nowhere to be found.
+	//  (ID: "_nomad-task-c983c35e-39d2-9218-bd31-585e3667de73-group-mygroup-myservice-9001-sidecar-proxy)
+
+	for _, service := range regs.Services {
+		fmt.Printf("@ service: %#v\n", service)
+	}
+
+	// Add the services to the allocation's registration
 	c.addRegistrations(newWorkload.AllocID, newWorkload.Name(), regs)
+
+	fmt.Printf("ServiceClient commit ops ...\n")
+	for _, reg := range ops.regServices {
+		fmt.Printf("    reg.name: %s, tags: %v\n", reg.Name, reg.Tags)
+	}
 
 	c.commit(ops)
 
@@ -1111,6 +1235,11 @@ func (c *ServiceClient) Shutdown() error {
 func (c *ServiceClient) addRegistrations(allocID, taskName string, reg *ServiceRegistrations) {
 	c.allocRegistrationsLock.Lock()
 	defer c.allocRegistrationsLock.Unlock()
+
+	fmt.Printf("ServiceClient.addRegistrations (task: %s)\n", taskName)
+	for _, registration := range reg.Services {
+		fmt.Printf("  serviceID: %s\n", registration.serviceID)
+	}
 
 	alloc, ok := c.allocRegistrations[allocID]
 	if !ok {

@@ -377,6 +377,13 @@ func tasksUpdated(jobA, jobB *structs.Job, taskGroup string) bool {
 		return true
 	}
 
+	// do we ever look at the services? no. should we? this function is about
+	// updating tasks of 2 jobs, and connect stanza is not part of a task.
+	//// Check connect stanza
+	//if connectUpdated(a.Services, b.Services) {
+	//	return true
+	//}
+
 	// Check each task
 	for _, at := range a.Tasks {
 		bt := b.LookupTask(at.Name)
@@ -448,6 +455,14 @@ func networkUpdated(netA, netB []*structs.NetworkResource) bool {
 	}
 	return false
 }
+
+//func connectUpdated(servicesA, servicesB []*api.Service) bool {
+//	for _, serviceA := range servicesA {
+//
+//	}
+//
+//	return false
+//}
 
 // networkPortMap takes a network resource and returns a map of port labels to
 // values. The value for dynamic ports is disregarded even if it is set. This
@@ -849,7 +864,7 @@ func genericAllocUpdateFn(ctx Context, stack Stack, evalID string) allocUpdateTy
 		// Check if the task drivers or config has changed, requires
 		// a destructive upgrade since that cannot be done in-place.
 		//
-		// TODO(shoenig): detect chagnes to connect stanza
+		// TODO(shoenig): detect changes to connect stanza
 		if tasksUpdated(newJob, existing.Job, newTG.Name) {
 			return false, true, nil
 		}

@@ -1,6 +1,8 @@
 package consul
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/nomad/client/allocrunner/taskrunner/interfaces"
 	"github.com/hashicorp/nomad/client/taskenv"
 	"github.com/hashicorp/nomad/nomad/mock"
@@ -40,6 +42,14 @@ type WorkloadServices struct {
 	DriverNetwork *drivers.DriverNetwork
 }
 
+func (ws *WorkloadServices) Print() {
+	fmt.Println("WorkloadServices, Group:", ws.Group)
+	for _, service := range ws.Services {
+		fmt.Printf("  service(%s) tags: %v\n", service.Name, service.Tags)
+		fmt.Printf("      service.connect.SS.tags: %v\n", service.Connect.SidecarService.Tags)
+	}
+}
+
 func BuildAllocServices(node *structs.Node, alloc *structs.Allocation, restarter WorkloadRestarter) *WorkloadServices {
 
 	//TODO(schmichael) only support one network for now
@@ -73,22 +83,22 @@ func BuildAllocServices(node *structs.Node, alloc *structs.Allocation, restarter
 }
 
 // Copy method for easing tests
-func (t *WorkloadServices) Copy() *WorkloadServices {
+func (ws *WorkloadServices) Copy() *WorkloadServices {
 	newTS := new(WorkloadServices)
-	*newTS = *t
+	*newTS = *ws
 
 	// Deep copy Services
-	newTS.Services = make([]*structs.Service, len(t.Services))
-	for i := range t.Services {
-		newTS.Services[i] = t.Services[i].Copy()
+	newTS.Services = make([]*structs.Service, len(ws.Services))
+	for i := range ws.Services {
+		newTS.Services[i] = ws.Services[i].Copy()
 	}
 	return newTS
 }
 
-func (w *WorkloadServices) Name() string {
-	if w.Task != "" {
-		return w.Task
+func (ws *WorkloadServices) Name() string {
+	if ws.Task != "" {
+		return ws.Task
 	}
 
-	return "group-" + w.Group
+	return "group-" + ws.Group
 }
