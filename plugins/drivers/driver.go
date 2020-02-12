@@ -163,6 +163,12 @@ type Capabilities struct {
 	// MustInitiateNetwork tells Nomad that the driver must create the network
 	// namespace and that the CreateNetwork and DestroyNetwork RPCs are implemented.
 	MustInitiateNetwork bool
+
+	// RemoteTasks indicates this driver runs tasks on remote systems
+	// instead of locally. The Nomad client and servers can use this
+	// information to adjust behavior such as propogating task handles
+	// between allocations to avoid downtime when a client is lost.
+	RemoteTasks bool
 }
 
 func (c *Capabilities) HasNetIsolationMode(m NetIsolationMode) bool {
