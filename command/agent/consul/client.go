@@ -453,7 +453,9 @@ func (c *ServiceClient) merge(ops *operations) {
 	for _, s := range ops.regServices {
 		c.services[s.ID] = s
 		fmt.Printf("ServiceClient.merge, sID: %s\n", s.ID)
-		// the bug is probably in sync
+
+		// at some point we need to split the service's connect, but here?
+		// ^ probably in sync
 	}
 	for _, check := range ops.regChecks {
 		c.checks[check.ID] = check
@@ -544,23 +546,39 @@ func (c *ServiceClient) sync() error {
 	// Add Nomad services missing from Consul, or where the service has been updated.
 	for id, serviceInNomad := range c.services {
 
-		// serviceInNomad includes its Connect sidecar service (if it exists),
-		// but Consul's agent API exposes these independently. Looks like we'll
-		// need to be smart and split up so we can do a proper diff
-
 		serviceInConsulAgent, ok := consulServices[id]
-		if serviceInNomad.Connect != nil {
-			if sidecar, ok := consulServices[id+"-sidecar-proxy"]; ok {
-				//				sidecarInConsulAgent = sidecar
-				fmt.Printf("$sync, %s has sidecar, id: %s, sidecar.tags: %v\n", serviceInNomad.Name, sidecar.Service, sidecar.Tags)
-				fmt.Printf("   the nomad connect.sidecar.tags: %v\n", serviceInNomad.Connect.SidecarService.Tags)
-			}
-		}
-
-		// okay so we have a diff on the sidecar!, now what?
-		// YOU ARE HERE.
-
 		if ok {
+
+			// serviceInNomad includes its Connect sidecar service (if it exists),
+			// but Consul's agent API exposes these independently. Looks like we'll
+			// need to be smart and split up so we can do a proper diff
+
+			if serviceInNomad.Connect != nil {
+				fmt.Printf("sync: Connect: %#v\n", serviceInNomad.Connect)
+
+				sidecarID := serviceInNomad.Connect.SidecarService.ID
+				sidecarName := serviceInNomad.Connect.SidecarService.Name
+
+				fmt.Printf("sync: parentName: %s, parentID: %s, sidecarName: %s, sidecarID: %s\n",
+					serviceInNomad.Name, serviceInNomad.ID, sidecarName, sidecarID)
+
+				if scInConsul, ok := consulServices[sidecarID]; ok {
+
+					fmt.Printf("sync: %s has scInConsul, id: %s, scInConsul.tags: %v\n", serviceInNomad.Name, scInConsul.Service, scInConsul.Tags)
+					fmt.Printf("   the nomad connect.scInConsul.tags: %v\n", serviceInNomad.Connect.SidecarService.Tags)
+
+					{
+						// hack
+						fmt.Printf("sync: updating sidecar service")
+						if err := c.client.ServiceRegister(serviceInNomad.Connect.SidecarService); err != nil {
+							fmt.Printf("  err: %v\n", err)
+						}
+						sreg++
+						fmt.Printf("  done.")
+					}
+				}
+			}
+
 			// There is an existing registration of this service in Consul, so here
 			// we validate to see if the service has been invalidated to see if it
 			// should be updated.
@@ -569,6 +587,9 @@ func (c *ServiceClient) sync() error {
 				continue
 			}
 		}
+
+		// should we respects ETO on the sidecar as well? probably yes (albeit not in this current mess, which is
+		// just me prototyping without the relavent ETO branch merged in)
 
 		if err = c.client.ServiceRegister(serviceInNomad); err != nil {
 			metrics.IncrCounter([]string{"client", "consul", "sync_failure"}, 1)
@@ -1091,8 +1112,11 @@ func (c *ServiceClient) UpdateWorkload(old, newWorkload *WorkloadServices) error
 	c.addRegistrations(newWorkload.AllocID, newWorkload.Name(), regs)
 
 	fmt.Printf("ServiceClient commit ops ...\n")
-	for _, reg := range ops.regServices {
-		fmt.Printf("    reg.name: %s, tags: %v\n", reg.Name, reg.Tags)
+	for _, service := range ops.regServices {
+
+		fmt.Printf("    servce.name: %s, tags: %v\n", service.Name, service.Tags)
+		fmt.Printf("     - service.c.ss: %s, tags: %v\n", service.Connect.SidecarService.Name, service.Connect.SidecarService.Tags)
+		// but wait! maybe we plumb ops through with enough information already? (ie no need to split, like above) CORRECT
 	}
 
 	c.commit(ops)
