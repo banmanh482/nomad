@@ -1,6 +1,9 @@
 package drivers
 
 import (
+	"encoding/json"
+
+	"github.com/hashicorp/nomad/nomad/structs"
 	"github.com/hashicorp/nomad/plugins/base"
 )
 
@@ -44,4 +47,30 @@ func (h *TaskHandle) Copy() *TaskHandle {
 	handle.DriverState = make([]byte, len(h.DriverState))
 	copy(handle.DriverState, h.DriverState)
 	return handle
+}
+
+// Store this TaskHandle on the TaskState.
+func (h *TaskHandle) Store(ts *structs.TaskState) error {
+	//FIXME(schmichael) use msgpack like the rest of the driver stuff? json
+	//is just human readable which is nice
+	buf, err := json.Marshal(h)
+	if err != nil {
+		return err
+	}
+	ts.TaskHandle = buf
+	return nil
+}
+
+// NewTaskHandleFromState returns the TaskHandle stored in a TaskState or nil
+// if no handle was stored.
+func NewTaskHandleFromState(ts *structs.TaskState) (*TaskHandle, error) {
+	if len(ts.TaskHandle) == 0 {
+		return nil, nil
+	}
+
+	h := &TaskHandle{}
+	if err := json.Unmarshal(ts.TaskHandle, h); err != nil {
+		return nil, err
+	}
+	return h, nil
 }

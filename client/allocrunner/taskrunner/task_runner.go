@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/nomad/nomad/structs"
 	bstructs "github.com/hashicorp/nomad/plugins/base/structs"
 	"github.com/hashicorp/nomad/plugins/drivers"
+	"github.com/kr/pretty"
 )
 
 const (
@@ -387,7 +388,7 @@ func (tr *TaskRunner) initLabels() {
 
 // Mark a task as failed and not to run.  Aimed to be invoked when alloc runner
 // prestart hooks failed.
-// Should never be called with Run().
+// Should never be called with Run.
 func (tr *TaskRunner) MarkFailedDead(reason string) {
 	defer close(tr.waitCh)
 
@@ -421,6 +422,15 @@ func (tr *TaskRunner) Run() {
 	tr.stateLock.RLock()
 	dead := tr.state.State == structs.TaskStateDead
 	tr.stateLock.RUnlock()
+
+	//FIXME(schmichael) Where best to opporunistically load task handle
+	//from state? Must be after initDriver (in NewTaskRunner).
+	// Load existing task handle
+	if err := tr.loadTaskHandle(); err != nil {
+		tr.logger.Error("failed to load existing task handle: %v", err)
+		// what cleanup do we attempt here?
+		return
+	}
 
 	// if restoring a dead task, ensure that task is cleared and all post hooks
 	// are called without additional state updates
@@ -974,7 +984,8 @@ func (tr *TaskRunner) Restore() error {
 func (tr *TaskRunner) restoreHandle(taskHandle *drivers.TaskHandle, net *drivers.DriverNetwork) (success bool) {
 	// Ensure handle is well-formed
 	if taskHandle.Config == nil {
-		return true
+		tr.logger.Error("task handle is not well-formed")
+		return false
 	}
 
 	if err := tr.driver.RecoverTask(taskHandle); err != nil {
@@ -1025,6 +1036,15 @@ func (tr *TaskRunner) UpdateState(state string, event *structs.TaskEvent) {
 		// Only log the error as we persistence errors should not
 		// affect task state.
 		tr.logger.Error("error persisting task state", "error", err, "event", event, "state", state)
+	}
+
+	// Store task handle for remote tasks
+	//FIXME(schmichael) determine when driverCaps can be nil, does it need a lock?
+	if tr.driverCapabilities != nil && tr.driverCapabilities.RemoteTasks {
+		if err := tr.localState.TaskHandle.Store(tr.state); err != nil {
+			//FIXME(schmichael) more drastic action needed?
+			tr.logger.Error("error storing task handle for remote task", "error", err)
+		}
 	}
 
 	// Notify the alloc runner of the transition
@@ -1374,6 +1394,42 @@ func (tr *TaskRunner) TaskExecHandler() drivermanager.TaskExecHandler {
 	return handle.ExecStreaming
 }
 
+//FIXME(schmichael) why doesn't this opportunistically use tr.driverCapabilities?!
 func (tr *TaskRunner) DriverCapabilities() (*drivers.Capabilities, error) {
 	return tr.driver.Capabilities()
+}
+
+//FIXME(schmichael) Docs
+// - Must be called after initDriver
+// - Check if this is a remote task or always run?
+// - Clear task handle
+func (tr *TaskRunner) loadTaskHandle() error {
+	tr.stateLock.Lock()
+	th, err := drivers.NewTaskHandleFromState(tr.state)
+	tr.stateLock.Unlock()
+
+	if err != nil {
+		return err
+	}
+	if th == nil {
+		//FIXME remove
+		tr.logger.Info("loadTaskHandle did NOT find a task handle", "state", pretty.Sprint(tr.state))
+		return nil
+	}
+
+	if err := tr.driver.RecoverTask(th); err != nil {
+		//FIXME(schmichael) soft error here to let a new instance get
+		//started?
+		tr.logger.Error("error recovering task state", "error", err)
+		return nil
+	}
+
+	//FIXME remove
+	tr.logger.Info("loadTaskHandle DID find a task handle", "id", th.Config.ID)
+
+	//FIXME(schmichael) drivernetwork?!
+	tr.setDriverHandle(NewDriverHandle(tr.driver, th.Config.ID, tr.Task(), nil))
+	tr.UpdateState(structs.TaskStateRunning, structs.NewTaskEvent(structs.TaskStarted))
+
+	return nil
 }

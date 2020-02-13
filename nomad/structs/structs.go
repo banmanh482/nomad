@@ -6078,6 +6078,11 @@ type TaskState struct {
 
 	// Series of task events that transition the state of the task.
 	Events []*TaskEvent
+
+	// TaskHandle is the encoded version of drivers.TaskHandle if a task
+	// wishes to propagate its handle to the server (as is the case with
+	// RemoteTasks).
+	TaskHandle []byte
 }
 
 // NewTaskState returns a TaskState initialized in the Pending state.
@@ -6099,16 +6104,21 @@ func (ts *TaskState) Copy() *TaskState {
 	if ts == nil {
 		return nil
 	}
-	copy := new(TaskState)
-	*copy = *ts
+	newTS := new(TaskState)
+	*newTS = *ts
 
 	if ts.Events != nil {
-		copy.Events = make([]*TaskEvent, len(ts.Events))
+		newTS.Events = make([]*TaskEvent, len(ts.Events))
 		for i, e := range ts.Events {
-			copy.Events[i] = e.Copy()
+			newTS.Events[i] = e.Copy()
 		}
 	}
-	return copy
+
+	if newTS.TaskHandle != nil {
+		newTS.TaskHandle = make([]byte, len(ts.TaskHandle))
+		copy(newTS.TaskHandle, ts.TaskHandle)
+	}
+	return newTS
 }
 
 // Successful returns whether a task finished successfully. This doesn't really
