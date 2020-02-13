@@ -554,7 +554,7 @@ func (c *ServiceClient) sync() error {
 			// need to be smart and split up so we can do a proper diff
 
 			if serviceInNomad.Connect != nil {
-				fmt.Printf("sync: Connect: %#v\n", serviceInNomad.Connect)
+				fmt.Printf("sync: Connect: %#v, SS: %#v\n", serviceInNomad.Connect, serviceInNomad.Connect.SidecarService)
 
 				sidecarID := serviceInNomad.Connect.SidecarService.ID
 				sidecarName := serviceInNomad.Connect.SidecarService.Name
