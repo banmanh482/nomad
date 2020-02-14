@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -39,14 +40,14 @@ const (
 	defaultRetryInterval = time.Second
 
 	// defaultMaxRetryInterval is the default max retry interval.
-	defaultMaxRetryInterval = 30 * time.Second
+	defaultMaxRetryInterval = 10 * time.Second
 
 	// defaultPeriodicalInterval is the interval at which the service
 	// client reconciles state between the desired services and checks and
 	// what's actually registered in Consul. This is done at an interval,
 	// rather than being purely edge triggered, to handle the case that the
 	// Consul agent's state may change underneath us
-	defaultPeriodicInterval = 30 * time.Second
+	defaultPeriodicInterval = 10 * time.Second
 
 	// ttlCheckBuffer is the time interval that Nomad can take to report Consul
 	// the check result
@@ -106,20 +107,39 @@ type ACLsAPI interface {
 	TokenList(q *api.QueryOptions) ([]*api.ACLTokenListEntry, *api.QueryMeta, error)
 }
 
-// svc.Connect is always nil ...
-func agentServiceUpdateRequired(reg *api.AgentServiceRegistration, svc *api.AgentService) bool {
+func agentServiceUpdateRequired(reg *api.AgentServiceRegistration, svc *api.AgentService, scs *api.AgentService) bool {
 
-	// lmao, we need to compare connect, i think
-	// also this function is all different now, after my previous PR
+	fmt.Printf("ASUR compare ------\n")
+	fmt.Printf("+ reg.Name:    %q, ID: %s\n", reg.Name, reg.ID)
+	fmt.Printf("- svc.Service: %q, ID: %s\n", svc.Service, svc.ID)
+	if scs == nil {
+		fmt.Printf("- scs is nil, not interested\n")
+		return false
+	}
+	fmt.Printf("- scs.Service: %q, ID: %s\n", scs.Service, scs.ID)
 
-	fmt.Printf("ASUR reg.Connect: %#v, svc.Connect: %#v\n", reg.Connect, svc.Connect)
-	// awww yeah, we are comparing apples and oranges
+	fmt.Printf("+ reg.HasConnect: %t\n", reg.Connect != nil)
+	fmt.Printf("- svc.HasConnect: %t\n", svc.Connect != nil)
+	fmt.Printf("- scs.IsConnect:  %s\n", scs.Kind)
 
+	fmt.Printf(" ASUR connect compare ...\n")
+	fmt.Printf("+ reg Tags: %v\n", reg.Connect.SidecarService.Tags)
+	fmt.Printf("- scs.Tags: %v\n", scs.Tags)
+
+	if !reflect.DeepEqual(reg.Connect.SidecarService.Tags, scs.Tags) {
+		fmt.Printf(" ... tags do not match, require update")
+		return true
+	}
+
+	// also, ETO and whatever in-place update-able fields (?)
+
+	// this will need to be fixed
 	return !(reg.Kind == svc.Kind &&
 		reg.ID == svc.ID &&
 		reg.Port == svc.Port &&
 		reg.Address == svc.Address &&
 		reg.Name == svc.Service &&
+		// reg.Connect.SidecarService.Tags == svc.Connect.SidecarService.Tags
 		reflect.DeepEqual(reg.Tags, svc.Tags) &&
 		reflect.DeepEqual(reg.Meta, svc.Meta))
 }
@@ -544,45 +564,57 @@ func (c *ServiceClient) sync() error {
 	}
 
 	// Add Nomad services missing from Consul, or where the service has been updated.
-	for id, serviceInNomad := range c.services {
+	for id, nService := range c.services {
 
-		serviceInConsulAgent, ok := consulServices[id]
+		cService, ok := consulServices[id]
 		if ok {
 
-			// serviceInNomad includes its Connect sidecar service (if it exists),
+			// nService includes its Connect sidecar service (if it exists),
 			// but Consul's agent API exposes these independently. Looks like we'll
 			// need to be smart and split up so we can do a proper diff
 
-			if serviceInNomad.Connect != nil {
-				fmt.Printf("sync: Connect: %#v, SS: %#v\n", serviceInNomad.Connect, serviceInNomad.Connect.SidecarService)
+			var cSCService *api.AgentService
+			if nService.Connect != nil {
+				fmt.Printf("sync: Connect: %#v, SS: %#v\n", nService.Connect, nService.Connect.SidecarService)
 
-				sidecarID := serviceInNomad.Connect.SidecarService.ID
-				sidecarName := serviceInNomad.Connect.SidecarService.Name
+				// these are not set on the object, we must compute them using our own name
+				//  ... are there methods for this somewhere? probably!
+				// sidecarID := nService.Connect.SidecarService.ID
+				// sidecarName := nService.Connect.SidecarService.Name
+				sidecarID := nService.ID + "-sidecar-proxy"
+				sidecarName := nService.Name + "-sidecar-proxy"
 
 				fmt.Printf("sync: parentName: %s, parentID: %s, sidecarName: %s, sidecarID: %s\n",
-					serviceInNomad.Name, serviceInNomad.ID, sidecarName, sidecarID)
+					nService.Name, nService.ID, sidecarName, sidecarID)
 
-				if scInConsul, ok := consulServices[sidecarID]; ok {
+				// we could probably get the sidecar here, and pass that struct along into ASUR
 
-					fmt.Printf("sync: %s has scInConsul, id: %s, scInConsul.tags: %v\n", serviceInNomad.Name, scInConsul.Service, scInConsul.Tags)
-					fmt.Printf("   the nomad connect.scInConsul.tags: %v\n", serviceInNomad.Connect.SidecarService.Tags)
-
-					{
-						// hack
-						fmt.Printf("sync: updating sidecar service")
-						if err := c.client.ServiceRegister(serviceInNomad.Connect.SidecarService); err != nil {
-							fmt.Printf("  err: %v\n", err)
-						}
-						sreg++
-						fmt.Printf("  done.")
-					}
+				cSCService, ok = consulServices[sidecarID]
+				if !ok {
+					fmt.Printf("sync: no consul service for sidecarID: %s\n", sidecarID)
+					os.Exit(1)
 				}
+				//if scInConsul, ok := consulServices[sidecarID]; ok {
+				//
+				//	fmt.Printf("sync: %s has scInConsul, id: %s, scInConsul.tags: %v\n", nService.Name, scInConsul.Service, scInConsul.Tags)
+				//	fmt.Printf("   the nomad connect.scInConsul.tags: %v\n", nService.Connect.SidecarService.Tags)
+				//
+				//	{
+				//		// hack
+				//		fmt.Printf("sync: updating sidecar service")
+				//		if err := c.client.ServiceRegister(nService.Connect.SidecarService); err != nil {
+				//			fmt.Printf("  err: %v\n", err)
+				//		}
+				//		sreg++
+				//		fmt.Printf("  done.")
+				//	}
+				//}
 			}
 
 			// There is an existing registration of this service in Consul, so here
 			// we validate to see if the service has been invalidated to see if it
 			// should be updated.
-			if !agentServiceUpdateRequired(serviceInNomad, serviceInConsulAgent) {
+			if !agentServiceUpdateRequired(nService, cService, cSCService) {
 				// No Need to update services that have not changed
 				continue
 			}
@@ -591,7 +623,7 @@ func (c *ServiceClient) sync() error {
 		// should we respects ETO on the sidecar as well? probably yes (albeit not in this current mess, which is
 		// just me prototyping without the relavent ETO branch merged in)
 
-		if err = c.client.ServiceRegister(serviceInNomad); err != nil {
+		if err = c.client.ServiceRegister(nService); err != nil {
 			metrics.IncrCounter([]string{"client", "consul", "sync_failure"}, 1)
 			return err
 		}
