@@ -220,16 +220,16 @@ job "countdash" {
 
 The job contains two task groups:
 
-- api: runs an API application that counts requests
-- dashboard: runs a Web application that displays the count from the API
+- **api** - runs an API application that counts requests
+- **dashboard** - runs a Web application that displays the count from the API
 
-Each task group contains a `service` stanza used to configure Consul
-Connect, described below.
+Communication between the underlying tasks for the dashboard and api services
+will be through Consul Connect, described below.
 
 ### API
 
 The `api` task group contains a network stanza that configures the group to use
-bridge mode. This is required for enabling tasks in the task group to use Connect:
+bridge mode. This is necessary to allow asks in the task group to use Connect:
 
 ```hcl
   group "api" {
@@ -241,17 +241,12 @@ bridge mode. This is required for enabling tasks in the task group to use Connec
   }
 ```
 
-Since the API service is only accessible via Consul Connect, it does not define
-any ports in its network. The service stanza enables Connect.
+Since the API service will only be accessible via Consul Connect, it does not
+define any ports in its network stanza.
 
-The `api` task group also contains a `service` stanza which enables Connect. The
-service stanza will cause two new entries in the Consul catalog: one for the `count-api`
-service, and one for the implicit `count-api-sidecar-proxy` service.
-
-The configured `port = "9001"` indicates the application will be listening to that
-port, but will be "hidden" in a network namespace. The envoy sidecar proxy will
-route traffic for this service to that port. To make a connection with `count-api`,
-other tasks will need to configure Connect, specifying `count-api` as an `upstream`.
+The `api` task group also contains a `service` stanza which activates Connect. The
+service stanza declares `count-api` as the name of the Consul service for the API
+which will become present in the Consul catalog.
 
 ```hcl
   group "api" {
@@ -271,16 +266,19 @@ other tasks will need to configure Connect, specifying `count-api` as an `upstre
   }
 ```
 
+The configured `port = "9001"` indicates the application will be listening to that
+port, but will be "hidden" in a network namespace. The envoy sidecar proxy will
+route traffic for this service to that port. To make a connection with `count-api`,
+other tasks will need to configure Connect, specifying `count-api` as an `upstream`.
+
+The `connect` stanza that declares the use of a `sidecar_service` indicates Nomad
+should launch Envoy as a sidecar. The sidecar will be registered in the Consul
+catalog as a service named `count-api-sidecar-proxy`.
+
 ### Dashboard Frontend
 
 The `dashboard` task group contains a contains a network stanza that configures
-the group to use bridge mode (as required for the task group to use Connect). It
-also defines a static and forwarded port which will be used as the port on which
-the Dashboard UI is made accessible.
-
-The `static = 9002` parameter requests the Nomad scheduler reserve port 9002 on
-a host network interface. The `to = 9002` parameter forwards that host port to
-port 9002 inside the network namespace.
+the group to use bridge mode (as required for the task group to use Connect).
 
 ```hcl
   group "dashboard" {
@@ -296,6 +294,12 @@ port 9002 inside the network namespace.
     # ...
   }
 ```
+
+The network stanza also declares a static and forwarded port which will be used
+as the port on which the Dashboard UI is made accessible. The `static = 9002`
+parameter requests the Nomad scheduler reserve port 9002 on a host network
+interface. The `to = 9002` parameter forwards that host port to port 9002 inside
+the network namespace.
 
 The `dashboard` task group contains a `service` stanza to enable Connect, which
 is configured to enable a connection with the `count-api` service described above:
