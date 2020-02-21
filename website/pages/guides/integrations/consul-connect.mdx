@@ -18,7 +18,7 @@ later.
 
 [Consul Connect](https://www.consul.io/docs/connect) provides
 service-to-service connection authorization and encryption using mutual
-Transport Layer Security (TLS). Applications can use sidecar proxies in a
+Transport Layer Security (mTLS). Applications can use sidecar proxies in a
 service mesh configuration to automatically establish TLS connections for
 inbound and outbound connections without being aware of Connect at all.
 
@@ -62,9 +62,11 @@ run in dev mode with the following command:
 $ consul agent -dev
 ```
 
-To use Connect on a non-dev Consul agent, you will minimally need to enable the
-GRPC port and set `connect` to enabled by adding some additional information to
-your Consul client configurations, depending on format.
+To use Connect on a non-dev Consul agent, you will minimally need to configure the
+gRPC port and set `connect` to enabled by adding some additional information to
+your Consul client configurations, depending on format. The gRPC port is required
+so that Consul can automatically manage
+[Envoy configuration](https://www.consul.io/docs/connect/proxies/envoy.html).
 
 For HCL configurations:
 
@@ -92,16 +94,6 @@ For JSON configurations:
      "enabled": true
   }
 }
-```
-
-### Nomad
-
-Nomad must schedule onto a routable interface in order for the proxies to
-connect to each other. The following steps show how to start a Nomad dev agent
-configured for Connect.
-
-```shell
-$ sudo nomad agent -dev-connect
 ```
 
 ### CNI Plugins
@@ -138,11 +130,25 @@ net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 ```
 
+### Nomad
+
+Nomad Client must bind onto a routable interface in order for the proxies to
+connect to each other. The following steps show how to start a Nomad dev agent
+configured for Connect.
+
+```shell
+$ sudo nomad agent -dev-connect
+```
+
 ## Run the Connect-enabled Services
 
-Once Nomad and Consul are running, submit the following Connect-enabled services
-to Nomad by copying the HCL into a file named `connect.nomad` and running:
-`nomad run connect.nomad`
+Once Nomad and Consul are running, submit the following `countdash` jobspec with
+Connect-enabled services to Nomad by copying the HCL into a file named
+`connect.nomad` and running:
+
+```shell
+$ nomad run connect.nomad
+```
 
 ```hcl
 job "countdash" {
@@ -162,7 +168,7 @@ job "countdash" {
       }
     }
 
-    task "web" {
+    task "api" {
       driver = "docker"
 
       config {
@@ -212,11 +218,18 @@ job "countdash" {
 }
 ```
 
-The job contains two task groups: an API service and a web frontend.
+The job contains two task groups:
 
-### API Service
+- api: runs an API application that counts requests
+- dashboard: runs a Web application that displays the count from the API
 
-The API service is defined as a task group with a bridge network:
+Each task group contains a `service` stanza used to configure Consul
+Connect, described below.
+
+### API
+
+The `api` task group contains a network stanza that configures the group to use
+bridge mode. This is required for enabling tasks in the task group to use Connect:
 
 ```hcl
   group "api" {
@@ -229,7 +242,16 @@ The API service is defined as a task group with a bridge network:
 ```
 
 Since the API service is only accessible via Consul Connect, it does not define
-any ports in its network. The service stanza enables Connect:
+any ports in its network. The service stanza enables Connect.
+
+The `api` task group also contains a `service` stanza which enables Connect. The
+service stanza will cause two new entries in the Consul catalog: one for the `count-api`
+service, and one for the implicit `count-api-sidecar-proxy` service.
+
+The configured `port = "9001"` indicates the application will be listening to that
+port, but will be "hidden" in a network namespace. The envoy sidecar proxy will
+route traffic for this service to that port. To make a connection with `count-api`,
+other tasks will need to configure Connect, specifying `count-api` as an `upstream`.
 
 ```hcl
   group "api" {
@@ -246,18 +268,19 @@ any ports in its network. The service stanza enables Connect:
     }
 
     # ...
-
   }
 ```
 
-The `port` in the service stanza is the port the API service listens on. The
-Envoy proxy will automatically route traffic to that port inside the network
-namespace.
+### Dashboard Frontend
 
-### Web Frontend
+The `dashboard` task group contains a contains a network stanza that configures
+the group to use bridge mode (as required for the task group to use Connect). It
+also defines a static and forwarded port which will be used as the port on which
+the Dashboard UI is made accessible.
 
-The web frontend is defined as a task group with a bridge network and a static
-forwarded port:
+The `static = 9002` parameter requests the Nomad scheduler reserve port 9002 on
+a host network interface. The `to = 9002` parameter forwards that host port to
+port 9002 inside the network namespace.
 
 ```hcl
   group "dashboard" {
@@ -271,22 +294,17 @@ forwarded port:
     }
 
     # ...
-
   }
 ```
 
-The `static = 9002` parameter requests the Nomad scheduler reserve port 9002 on
-a host network interface. The `to = 9002` parameter forwards that host port to
-port 9002 inside the network namespace.
-
-This allows you to connect to the web frontend in a browser by visiting
-`http://<host_ip>:9002` as show below:
-
-[![Count Dashboard][count-dashboard]][count-dashboard]
-
-The web frontend connects to the API service via Consul Connect:
+The `dashboard` task group contains a `service` stanza to enable Connect, which
+is configured to enable a connection with the `count-api` service described above:
 
 ```hcl
+  group "dashboard" {
+
+    # ...
+
     service {
       name = "count-dashboard"
       port = "9002"
@@ -302,7 +320,14 @@ The web frontend connects to the API service via Consul Connect:
         }
       }
     }
+
+    # ...
+  }
 ```
+
+The service stanza will cause two new entries in the Consul catalog: one for the
+`count-dashboard` service, and one for the implicit `count-dashboard-sidecar-proxy`
+service.
 
 The `upstreams` stanza defines the remote service to access (`count-api`) and
 what port to expose that service on inside the network namespace (`8080`).
@@ -320,6 +345,11 @@ The web frontend is configured via the `$COUNTING_SERVICE_URL`, so you must
 interpolate the upstream's address into that environment variable. Note that
 dashes (`-`) are converted to underscores (`_`) in environment variables so
 `count-api` becomes `count_api`.
+
+This allows you to connect to the web frontend in a browser by visiting
+`http://<host_ip>:9002` as show below:
+
+[![Count Dashboard][count-dashboard]][count-dashboard]
 
 ## Limitations
 
