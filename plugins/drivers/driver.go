@@ -168,6 +168,9 @@ type Capabilities struct {
 	// instead of locally. The Nomad client and servers can use this
 	// information to adjust behavior such as propogating task handles
 	// between allocations to avoid downtime when a client is lost.
+	//
+	//FIXME(schmichael) Name doesn't feel like it matches the other
+	//capabilities. Perhaps just "Remote"?
 	RemoteTasks bool
 }
 
