@@ -1081,7 +1081,11 @@ func (n *Node) UpdateAlloc(args *structs.AllocUpdateRequest, reply *structs.Gene
 	for _, alloc := range args.Alloc {
 		//FIXME(schmichael) remove
 		for task, state := range alloc.TaskStates {
-			n.logger.Info("UpdateAlloc -->", "alloc", alloc.ID, "task_name", task, "state_handle", string(state.TaskHandle))
+			ds := "<none>"
+			if state.TaskHandle != nil {
+				ds = string(state.TaskHandle.DriverState)
+			}
+			n.logger.Info("-----> UpdateAlloc()", "alloc", alloc.ID, "task_name", task, "driver_state", ds)
 		}
 		alloc.ModifyTime = now.UTC().UnixNano()
 

@@ -212,7 +212,7 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 }
 
 func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
-	d.logger.Info("RecoverTask() called", "handle", handle)
+	d.logger.Info("RecoverTask() called", "version", handle.Version, "task_config.id", handle.Config.ID, "task_state", handle.State, "driver_state_bytes", len(handle.DriverState))
 	if handle == nil {
 		return fmt.Errorf("handle cannot be nil")
 	}
@@ -237,7 +237,7 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	h := newTaskHandle(d.logger, taskState)
 
-	d.tasks.Set(taskState.TaskConfig.ID, h)
+	d.tasks.Set(handle.Config.ID, h)
 
 	go h.run()
 	return nil

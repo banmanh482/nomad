@@ -426,11 +426,7 @@ func (tr *TaskRunner) Run() {
 	//FIXME(schmichael) Where best to opporunistically load task handle
 	//from state? Must be after initDriver (in NewTaskRunner).
 	// Load existing task handle
-	if err := tr.loadTaskHandle(); err != nil {
-		tr.logger.Error("failed to load existing task handle: %v", err)
-		// what cleanup do we attempt here?
-		return
-	}
+	tr.loadTaskHandle()
 
 	// if restoring a dead task, ensure that task is cleared and all post hooks
 	// are called without additional state updates
@@ -1041,10 +1037,8 @@ func (tr *TaskRunner) UpdateState(state string, event *structs.TaskEvent) {
 	// Store task handle for remote tasks
 	//FIXME(schmichael) determine when driverCaps can be nil, does it need a lock?
 	if tr.driverCapabilities != nil && tr.driverCapabilities.RemoteTasks {
-		if err := tr.localState.TaskHandle.Store(tr.state); err != nil {
-			//FIXME(schmichael) more drastic action needed?
-			tr.logger.Error("error storing task handle for remote task", "error", err)
-		}
+		tr.logger.Info("-----> UpdateState() storing handle", "state", state)
+		tr.localState.TaskHandle.Store(tr.state)
 	}
 
 	// Notify the alloc runner of the transition
@@ -1403,33 +1397,46 @@ func (tr *TaskRunner) DriverCapabilities() (*drivers.Capabilities, error) {
 // - Must be called after initDriver
 // - Check if this is a remote task or always run?
 // - Clear task handle
-func (tr *TaskRunner) loadTaskHandle() error {
+func (tr *TaskRunner) loadTaskHandle() {
 	tr.stateLock.Lock()
-	th, err := drivers.NewTaskHandleFromState(tr.state)
+	th := drivers.NewTaskHandleFromState(tr.state)
 	tr.stateLock.Unlock()
 
-	if err != nil {
-		return err
-	}
 	if th == nil {
 		//FIXME remove
-		tr.logger.Info("loadTaskHandle did NOT find a task handle", "state", pretty.Sprint(tr.state))
-		return nil
+		tr.logger.Info("----> loadTaskHandle did NOT find a task handle", "state", pretty.Sprint(tr.state))
+		return
 	}
+
+	// The task config is unique per invocation so recreate it here
+	th.Config = tr.buildTaskConfig()
 
 	if err := tr.driver.RecoverTask(th); err != nil {
 		//FIXME(schmichael) soft error here to let a new instance get
 		//started?
 		tr.logger.Error("error recovering task state", "error", err)
-		return nil
+		return
+	}
+
+	taskInfo, err := tr.driver.InspectTask(th.Config.ID)
+	if err != nil {
+		//FIXME(schmichael) soft error here to let a new instance get
+		//started?
+		tr.logger.Error("error inspecting recovered task state", "error", err)
+		return
 	}
 
 	//FIXME remove
-	tr.logger.Info("loadTaskHandle DID find a task handle", "id", th.Config.ID)
+	tr.logger.Info("----> loadTaskHandle DID find a task handle", "id", th.Config.ID)
 
-	//FIXME(schmichael) drivernetwork?!
-	tr.setDriverHandle(NewDriverHandle(tr.driver, th.Config.ID, tr.Task(), nil))
+	tr.setDriverHandle(NewDriverHandle(tr.driver, th.Config.ID, tr.Task(), taskInfo.NetworkOverride))
+
+	tr.stateLock.Lock()
+	tr.localState.TaskHandle = th
+	tr.localState.DriverNetwork = taskInfo.NetworkOverride
+	tr.stateLock.Unlock()
+
 	tr.UpdateState(structs.TaskStateRunning, structs.NewTaskEvent(structs.TaskStarted))
 
-	return nil
+	tr.logger.Info("----> loadTaskHandle done")
 }

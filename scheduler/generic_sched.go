@@ -531,8 +531,8 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 					//testing
 					// Copy task handles if they exist
 					alloc.TaskStates = make(map[string]*structs.TaskState, len(alloc.AllocatedResources.Tasks))
-					for taskName, state := range prevAllocation.TaskStates {
-						if len(state.TaskHandle) == 0 {
+					for taskName, prevState := range prevAllocation.TaskStates {
+						if prevState.TaskHandle == nil {
 							// No task handle, skip
 							continue
 						}
@@ -543,13 +543,12 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 						}
 
 						newState := structs.NewTaskState()
-						newState.TaskHandle = make([]byte, len(state.TaskHandle))
-						copy(newState.TaskHandle, state.TaskHandle)
+						newState.TaskHandle = prevState.TaskHandle.Copy()
 						alloc.TaskStates[taskName] = newState
 
 						//FIXME(schmichael) remove
 						s.logger.Info("--------> copied task handle", "alloc", alloc.ID, "prev_alloc", prevAllocation.ID,
-							"handle_bytes", len(newState.TaskHandle))
+							"handle_bytes", len(newState.TaskHandle.DriverState))
 					}
 				}
 
