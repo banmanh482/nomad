@@ -524,6 +524,33 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 					if missing.IsRescheduling() {
 						updateRescheduleTracker(alloc, prevAllocation, now)
 					}
+
+					//FIXME(schmichael) is this the right
+					//place to copy state? if so
+					//encapsulate in a func for easier
+					//testing
+					// Copy task handles if they exist
+					alloc.TaskStates = make(map[string]*structs.TaskState, len(alloc.AllocatedResources.Tasks))
+					for taskName, state := range prevAllocation.TaskStates {
+						if len(state.TaskHandle) == 0 {
+							// No task handle, skip
+							continue
+						}
+
+						if _, ok := alloc.AllocatedResources.Tasks[taskName]; !ok {
+							// Task dropped in update, skip
+							continue
+						}
+
+						newState := structs.NewTaskState()
+						newState.TaskHandle = make([]byte, len(state.TaskHandle))
+						copy(newState.TaskHandle, state.TaskHandle)
+						alloc.TaskStates[taskName] = newState
+
+						//FIXME(schmichael) remove
+						s.logger.Info("--------> copied task handle", "alloc", alloc.ID, "prev_alloc", prevAllocation.ID,
+							"handle_bytes", len(newState.TaskHandle))
+					}
 				}
 
 				// If we are placing a canary and we found a match, add the canary
