@@ -86,6 +86,7 @@ func (h *taskHandle) run() {
 	h.logger.Info("-----> OpenWriter()", "stdout_path", h.taskConfig.StdoutPath)
 	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 	if err != nil {
+		h.logger.Info("-----> OpenWriter() ERROR 1", "error", err, "stdout_path", h.taskConfig.StdoutPath)
 		h.stateLock.Lock()
 		defer h.stateLock.Unlock()
 		h.completedAt = time.Now()
@@ -102,15 +103,18 @@ func (h *taskHandle) run() {
 		case <-time.After(5 * time.Second):
 			now := time.Now().Format(time.RFC3339)
 			if _, err := fmt.Fprintf(f, "[%s] - uuid:%s started_at:%s\n", now, h.uuid, h.startedAt); err != nil {
+				h.logger.Info("-----> OpenWriter() ERROR 2", "error", err, "stdout_path", h.taskConfig.StdoutPath)
 				h.stateLock.Lock()
 				defer h.stateLock.Unlock()
 				h.completedAt = time.Now()
-				h.exitResult.ExitCode = 1
-				h.exitResult.Err = fmt.Errorf("failed to create stdout: %v", err)
+				h.exitResult.ExitCode = 2
+				h.exitResult.Err = fmt.Errorf("failed to write to stdout: %v", err)
 			}
 		case <-h.ctx.Done():
 		}
 	}
+
+	h.logger.Info("-----> handle.run DONE", "ctx_error", h.ctx.Err(), "stdout_path", h.taskConfig.StdoutPath)
 
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()

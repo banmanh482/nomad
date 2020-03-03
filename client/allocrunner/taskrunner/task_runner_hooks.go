@@ -137,6 +137,10 @@ func (tr *TaskRunner) initHooks() {
 		logger: hookLogger,
 	})
 	tr.runnerHooks = append(tr.runnerHooks, scriptCheckHook)
+
+	// Add remote task hook last so RecoverTask is called after all the
+	// other hooks have completed.
+	tr.runnerHooks = append(tr.runnerHooks, newRemoteTaskHook(tr, hookLogger))
 }
 
 func (tr *TaskRunner) emitHookError(err error, hookName string) {

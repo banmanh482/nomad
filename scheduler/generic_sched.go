@@ -529,6 +529,7 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 					//place to copy state? if so
 					//encapsulate in a func for easier
 					//testing
+					//FIXME(schmichael) do *not* copy for destructive updates; only copy for drains & lost
 					// Copy task handles if they exist
 					alloc.TaskStates = make(map[string]*structs.TaskState, len(alloc.AllocatedResources.Tasks))
 					for taskName, prevState := range prevAllocation.TaskStates {

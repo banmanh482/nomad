@@ -240,6 +240,7 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	d.tasks.Set(handle.Config.ID, h)
 
 	go h.run()
+	d.logger.Info("RecoverTask() DONE", "uuid", taskState.UUID)
 	return nil
 }
 
