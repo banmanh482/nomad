@@ -1138,6 +1138,8 @@ func (tr *TaskRunner) appendEvent(event *structs.TaskEvent) error {
 	// Ensure the event is populated with human readable strings
 	event.PopulateEventDisplayMessage()
 
+	tr.logger.Info("------> appendEvent()", "type", event.Type, "msg", event.Message, "exit_code", event.ExitCode, "signal", event.Signal, "reason", event.RestartReason)
+
 	// Propagate failure from event to task state
 	if event.FailsTask {
 		tr.state.Failed = true

@@ -235,7 +235,7 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	d.logger.Info("RecoverTask() -> Reattached", "uuid", taskState.UUID, "started_at", taskState.StartedAt)
 
-	h := newTaskHandle(d.logger, taskState)
+	h := newTaskHandle(d.logger, taskState, handle.Config)
 
 	d.tasks.Set(handle.Config.ID, h)
 
@@ -270,7 +270,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	d.logger.Info("StartTask() -> started", "uuid", driverState.UUID, "started_at", driverState.StartedAt)
 
-	h := newTaskHandle(d.logger, driverState)
+	h := newTaskHandle(d.logger, driverState, cfg)
 
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)

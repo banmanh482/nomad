@@ -29,13 +29,17 @@ type taskHandle struct {
 	cancel context.CancelFunc
 }
 
-func newTaskHandle(logger hclog.Logger, ts TaskState) *taskHandle {
+func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig) *taskHandle {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger = logger.Named("handle").With("uuid", ts.UUID)
 
 	h := &taskHandle{
-		uuid:       ts.UUID,
-		taskConfig: ts.TaskConfig,
+		uuid: ts.UUID,
+		//FIXME(schmichael) this originally used a TaskConfig persisted
+		//in the TaskState which broke logging as it pointed to the old
+		//logmon path. can we remove the TaskConfig from the driver
+		//state or does that break agent restart?!
+		taskConfig: taskConfig,
 		procState:  drivers.TaskStateRunning,
 		startedAt:  ts.StartedAt,
 		exitResult: &drivers.ExitResult{},
@@ -79,6 +83,7 @@ func (h *taskHandle) run() {
 	}
 	h.stateLock.Unlock()
 
+	h.logger.Info("-----> OpenWriter()", "stdout_path", h.taskConfig.StdoutPath)
 	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 	if err != nil {
 		h.stateLock.Lock()
