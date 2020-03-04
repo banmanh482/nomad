@@ -1,14 +1,14 @@
-package fakeremote
+package ecs
 
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"strconv"
-	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad/client/structs"
 	"github.com/hashicorp/nomad/drivers/shared/eventer"
 	"github.com/hashicorp/nomad/helper/pluginutils/loader"
 	"github.com/hashicorp/nomad/plugins/base"
@@ -18,29 +18,18 @@ import (
 )
 
 const (
-	pluginName        = "fakeremote"
+	// pluginName is the name of the plugin
+	pluginName = "ecs"
+
+	// fingerprintPeriod is the interval at which the driver will send fingerprint responses
 	fingerprintPeriod = 30 * time.Second
+
+	// taskHandleVersion is ...
 	taskHandleVersion = 1
 )
 
 var (
-	PluginID = loader.PluginID{
-		Name:       pluginName,
-		PluginType: base.PluginTypeDriver,
-	}
-
-	PluginConfig = &loader.InternalPluginConfig{
-		Config:  map[string]interface{}{},
-		Factory: func(l hclog.Logger) interface{} { return NewFakeRemoteDriver(l) },
-	}
-)
-
-func PluginLoader(opts map[string]string) (map[string]interface{}, error) {
-	conf := map[string]interface{}{}
-	return conf, nil
-}
-
-var (
+	// pluginInfo is the response returned for the PluginInfo RPC
 	pluginInfo = &base.PluginInfoResponse{
 		Type:              base.PluginTypeDriver,
 		PluginApiVersions: []string{drivers.ApiVersion010},
@@ -48,43 +37,55 @@ var (
 		Name:              pluginName,
 	}
 
+	PluginID = loader.PluginID{
+		Name:       pluginName,
+		PluginType: base.PluginTypeDriver,
+	}
+
+	PluginConfig = &loader.InternalPluginConfig{
+		Config:  map[string]interface{}{},
+		Factory: func(l hclog.Logger) interface{} { return NewPlugin(l) },
+	}
+
+	// configSpec is the hcl specification returned by the ConfigSchema RPC
 	configSpec = hclspec.NewObject(map[string]*hclspec.Spec{
-		"enabled": hclspec.NewDefault(
-			hclspec.NewAttr("enabled", "bool", false),
-			hclspec.NewLiteral("true"),
-		),
+		"enabled":    hclspec.NewAttr("enabled", "bool", false),
+		"region":     hclspec.NewAttr("region", "string", false),
+		"cluster":    hclspec.NewAttr("cluster", "string", false),
+		"access_key": hclspec.NewAttr("access_key", "string", false),
+		"secret_key": hclspec.NewAttr("secret_key", "string", false),
 	})
 
+	// taskConfigSpec is the hcl specification for the driver config section of
+	// a task within a job. It is returned in the TaskConfigSchema RPC
 	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
-		"command": hclspec.NewAttr("command", "string", true),
-		"args":    hclspec.NewAttr("args", "list(string)", false),
+		"mode":  hclspec.NewAttr("mode", "string", false),
+		"image": hclspec.NewAttr("image", "string", false),
 	})
 
 	// capabilities is returned by the Capabilities RPC and indicates what
 	// optional features this driver supports
 	capabilities = &drivers.Capabilities{
-		SendSignals: true,
-		Exec:        true,
-		FSIsolation: drivers.FSIsolationNone,
-		NetIsolationModes: []drivers.NetIsolationMode{
-			drivers.NetIsolationModeHost,
-		},
+		SendSignals: false,
+		Exec:        false,
+		FSIsolation: drivers.FSIsolationImage,
 		RemoteTasks: true,
 	}
 )
 
+// Driver is a driver for running ECS containers
 type Driver struct {
 	// eventer is used to handle multiplexing of TaskEvents calls such that an
 	// event can be broadcast to all callers
 	eventer *eventer.Eventer
 
 	// config is the driver configuration set by the SetConfig RPC
-	config *Config
+	config *DriverConfig
 
 	// nomadConfig is the client config from nomad
 	nomadConfig *base.ClientDriverConfig
 
-	// tasks is the in memory datastore mapping taskIDs to driverHandles
+	// tasks is the in memory datastore mapping taskIDs to rawExecDriverHandles
 	tasks *taskStore
 
 	// ctx is the context for the driver. It is passed to other subsystems to
@@ -97,37 +98,43 @@ type Driver struct {
 
 	// logger will log to the Nomad agent
 	logger hclog.Logger
+
+	// ecsClientInterface is the interface used for communicating with AWS ECS
+	client ecsClientInterface
 }
 
-// Config is the driver configuration set by the SetConfig RPC call
-type Config struct {
-	// Enabled is set to true to enable the raw_exec driver
-	Enabled bool `codec:"enabled"`
+// DriverConfig is the driver configuration set by the SetConfig RPC call
+type DriverConfig struct {
+	Enabled   bool   `codec:"enabled"`
+	Region    string `coded:"region"`
+	Cluster   string `coded:"cluster"`
+	AccessKey string `coded:"access_key"`
+	SecretKey string `coded:"secret_key"`
 }
 
 // TaskConfig is the driver configuration of a task within a job
 type TaskConfig struct {
-	Command string   `codec:"command"`
-	Args    []string `codec:"args"`
+	Mode  string `codec:"mode"`
+	Image string `codec:"image"`
 }
 
 // TaskState is the state which is encoded in the handle returned in
 // StartTask. This information is needed to rebuild the task state and handler
 // during recovery.
 type TaskState struct {
-	ReattachConfig *pstructs.ReattachConfig
-	TaskConfig     *drivers.TaskConfig
-	PID            int
-	StartedAt      time.Time
+	TaskConfig    *drivers.TaskConfig
+	ContainerName string
+	ARN           string
+	StartedAt     time.Time
 }
 
-// NewFakeRemoteDriver returns a new DriverPlugin implementation
-func NewFakeRemoteDriver(logger hclog.Logger) drivers.DriverPlugin {
+// NewECSDriver returns a new DriverPlugin implementation
+func NewPlugin(logger hclog.Logger) drivers.DriverPlugin {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger = logger.Named(pluginName)
 	return &Driver{
 		eventer:        eventer.NewEventer(ctx, logger),
-		config:         &Config{},
+		config:         &DriverConfig{},
 		tasks:          newTaskStore(),
 		ctx:            ctx,
 		signalShutdown: cancel,
@@ -144,22 +151,49 @@ func (d *Driver) ConfigSchema() (*hclspec.Spec, error) {
 }
 
 func (d *Driver) SetConfig(cfg *base.Config) error {
-	var config Config
+	var config DriverConfig
 	if len(cfg.PluginConfig) != 0 {
 		if err := base.MsgPackDecode(cfg.PluginConfig, &config); err != nil {
 			return err
 		}
 	}
 
+	d.logger.Info("-------> config", "config", config)
+
 	d.config = &config
 	if cfg.AgentConfig != nil {
 		d.nomadConfig = cfg.AgentConfig.Driver
 	}
+
+	client, err := d.getAwsSdk()
+	if err != nil {
+		return fmt.Errorf("failed to get AWS SDK client: %v", err)
+	}
+	d.client = client
+
 	return nil
 }
 
-func (d *Driver) Shutdown() {
+func (d *Driver) getAwsSdk() (ecsClientInterface, error) {
+	awsCfg, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return nil, fmt.Errorf("unable to load SDK config: %v", err)
+	}
+
+	//if d.config.Region != "" {
+	//	awsCfg.Region = d.config.Region
+	//}
+
+	awsCfg.Region = "us-east-1"
+
+	return awsEcsClient{
+		ecsClient: ecs.New(awsCfg),
+	}, nil
+}
+
+func (d *Driver) Shutdown(ctx context.Context) error {
 	d.signalShutdown()
+	return nil
 }
 
 func (d *Driver) TaskConfigSchema() (*hclspec.Spec, error) {
@@ -187,19 +221,26 @@ func (d *Driver) handleFingerprint(ctx context.Context, ch chan<- *drivers.Finge
 			return
 		case <-ticker.C:
 			ticker.Reset(fingerprintPeriod)
-			ch <- d.buildFingerprint()
+			ch <- d.buildFingerprint(ctx)
 		}
 	}
 }
 
-func (d *Driver) buildFingerprint() *drivers.Fingerprint {
+func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 	var health drivers.HealthState
 	var desc string
 	attrs := map[string]*pstructs.Attribute{}
+
 	if d.config.Enabled {
-		health = drivers.HealthStateHealthy
-		desc = drivers.DriverHealthy
-		attrs["driver.fakeremote"] = pstructs.NewBoolAttribute(true)
+		if _, err := d.client.ListClusters(ctx); err != nil {
+			health = drivers.HealthStateUnhealthy
+			desc = err.Error()
+			attrs["driver.ecs"] = pstructs.NewBoolAttribute(false)
+		} else {
+			health = drivers.HealthStateHealthy
+			desc = "ready"
+			attrs["driver.ecs"] = pstructs.NewBoolAttribute(true)
+		}
 	} else {
 		health = drivers.HealthStateUndetected
 		desc = "disabled"
@@ -234,14 +275,14 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 		return fmt.Errorf("failed to decode task state from handle: %v", err)
 	}
 
-	d.logger.Info("RecoverTask() -> Reattached", "pid", taskState.PID, "started_at", taskState.StartedAt)
+	d.logger.Info("RecoverTask() -> Reattached", "arn", taskState.ARN, "started_at", taskState.StartedAt)
 
-	h := newTaskHandle(d.logger, taskState, handle.Config)
+	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
 	d.tasks.Set(handle.Config.ID, h)
 
 	go h.run()
-	d.logger.Info("RecoverTask() DONE", "pid", taskState.PID)
+	d.logger.Info("RecoverTask() DONE", "arn", taskState.ARN)
 	return nil
 }
 
@@ -264,28 +305,20 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
 
-	// Setup our command.
-	cmd := exec.Command(driverConfig.Command, driverConfig.Args...)
-
-	// Attempt to start the process, checking both for an initial error, and
-	// that the processID has been populated. The point here is not to attach
-	// in anyway, but just have "remote" information available.
-	if err := cmd.Start(); err != nil {
-		return nil, nil, fmt.Errorf("failed to start process: %v", err)
-	}
-	if cmd.Process.Pid == 0 {
-		return nil, nil, fmt.Errorf("no PID found for running process")
+	arn, err := d.client.RunTask(context.Background())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to start ECS task: %v", err)
 	}
 
 	driverState := TaskState{
 		TaskConfig: cfg,
 		StartedAt:  time.Now(),
-		PID:        cmd.Process.Pid,
+		ARN:        arn,
 	}
 
-	d.logger.Info("StartTask() -> started", "pid", driverState.PID, "started_at", driverState.StartedAt)
+	d.logger.Info("StartTask() -> started", "arn", driverState.ARN, "started_at", driverState.StartedAt)
 
-	h := newTaskHandle(d.logger, driverState, cfg)
+	h := newTaskHandle(d.logger, driverState, cfg, d.client)
 
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)
@@ -294,6 +327,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	d.tasks.Set(cfg.ID, h)
+
 	go h.run()
 	return handle, nil, nil
 }
@@ -370,16 +404,14 @@ func (d *Driver) DestroyTask(taskID string, force bool) error {
 }
 
 func (d *Driver) InspectTask(taskID string) (*drivers.TaskStatus, error) {
-	d.logger.Info("InspectTask() called", "task_id", taskID)
 	handle, ok := d.tasks.Get(taskID)
 	if !ok {
 		return nil, drivers.ErrTaskNotFound
 	}
-
 	return handle.TaskStatus(), nil
 }
 
-func (d *Driver) TaskStats(ctx context.Context, taskID string, interval time.Duration) (<-chan *drivers.TaskResourceUsage, error) {
+func (d *Driver) TaskStats(ctx context.Context, taskID string, interval time.Duration) (<-chan *structs.TaskResourceUsage, error) {
 	d.logger.Info("TaskStats() called", "task_id", taskID)
 	_, ok := d.tasks.Get(taskID)
 	if !ok {
@@ -393,8 +425,6 @@ func (d *Driver) TaskStats(ctx context.Context, taskID string, interval time.Dur
 		for {
 			select {
 			case <-time.After(interval):
-				//FIXME It's a bit silly to setup all of this
-				// machinery to just emit nils but ¯\_(ツ)_/¯
 				select {
 				case ch <- nil:
 				case <-ctx.Done():
@@ -416,31 +446,9 @@ func (d *Driver) TaskEvents(ctx context.Context) (<-chan *drivers.TaskEvent, err
 }
 
 func (d *Driver) SignalTask(taskID string, signal string) error {
-	d.logger.Info("SignalTask() called", "task_id", taskID, "signal", signal)
-	handle, ok := d.tasks.Get(taskID)
-	if !ok {
-		return drivers.ErrTaskNotFound
-	}
-
-	handle.stop()
-
-	d.logger.Info("SignalTask() sent", "task_id", taskID, "signal", signal, "pid", handle.pid)
-
-	return nil
+	return fmt.Errorf("ECS driver does not support signals")
 }
 
 func (d *Driver) ExecTask(taskID string, cmd []string, timeout time.Duration) (*drivers.ExecTaskResult, error) {
-	d.logger.Info("ExecTask() called", "cmd", strings.Join(cmd, " "), "timeout", timeout.String())
-
-	handle, ok := d.tasks.Get(taskID)
-	if !ok {
-		return nil, drivers.ErrTaskNotFound
-	}
-
-	return &drivers.ExecTaskResult{
-		Stdout: []byte(strconv.Itoa(handle.pid)),
-		ExitResult: &drivers.ExitResult{
-			ExitCode: 0,
-		},
-	}, nil
+	return nil, fmt.Errorf("ECS driver does not support exec")
 }

@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"github.com/hashicorp/nomad/drivers/docker"
+	"github.com/hashicorp/nomad/drivers/ecs"
 	"github.com/hashicorp/nomad/drivers/exec"
 	"github.com/hashicorp/nomad/drivers/fakeremote"
 	"github.com/hashicorp/nomad/drivers/java"
@@ -21,4 +22,5 @@ func init() {
 
 	//FIXME(schmichael) Remove - for dev purposes only
 	Register(fakeremote.PluginID, fakeremote.PluginConfig)
+	Register(ecs.PluginID, ecs.PluginConfig)
 }

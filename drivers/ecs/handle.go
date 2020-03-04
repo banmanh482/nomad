@@ -1,21 +1,25 @@
-package fakeremote
+package ecs
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
-	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/fifo"
+	"github.com/hashicorp/nomad/client/stats"
 	"github.com/hashicorp/nomad/plugins/drivers"
 )
 
 type taskHandle struct {
-	pid    int
-	logger hclog.Logger
+	arn       string
+	logger    hclog.Logger
+	ecsClient ecsClientInterface
+
+	totalCpuStats  *stats.CpuStats
+	userCpuStats   *stats.CpuStats
+	systemCpuStats *stats.CpuStats
 
 	// stateLock syncs access to all fields below
 	stateLock sync.RWMutex
@@ -31,12 +35,13 @@ type taskHandle struct {
 	cancel context.CancelFunc
 }
 
-func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig) *taskHandle {
+func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig, ecsClient ecsClientInterface) *taskHandle {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger = logger.Named("handle").With("pid", ts.PID)
+	logger = logger.Named("handle").With("arn", ts.ARN)
 
 	h := &taskHandle{
-		pid: ts.PID,
+		arn:       ts.ARN,
+		ecsClient: ecsClient,
 		//FIXME(schmichael) this originally used a TaskConfig persisted
 		//in the TaskState which broke logging as it pointed to the old
 		//logmon path. can we remove the TaskConfig from the driver
@@ -66,7 +71,7 @@ func (h *taskHandle) TaskStatus() *drivers.TaskStatus {
 		CompletedAt: h.completedAt,
 		ExitResult:  h.exitResult,
 		DriverAttributes: map[string]string{
-			"pid": strconv.Itoa(h.pid),
+			"arn": h.arn,
 		},
 	}
 }
@@ -100,27 +105,33 @@ func (h *taskHandle) run() {
 
 	// Block until stopped.
 	for h.ctx.Err() == nil {
-
-		// External providers do not support blocking queries or pub/sub style
-		// feedback on resources. This block mimics what is likely to be
-		// required in these situations were we poll for the health of the
-		// remote resource and log relevant information.
 		select {
 		case <-time.After(5 * time.Second):
 
-			_, err := os.FindProcess(h.pid)
+			status, err := h.ecsClient.DescribeTaskStatus(h.ctx, h.arn)
 			if err != nil {
-				h.logger.Info("-----> failed to find process", "error", err, "pid", h.pid)
+				h.logger.Info("-----> failed to find ECS task", "error", err, "arn", h.arn)
 				h.stateLock.Lock()
 				h.completedAt = time.Now()
 				h.exitResult.ExitCode = 2
-				h.exitResult.Err = fmt.Errorf("failed to find process: %v", err)
+				h.exitResult.Err = fmt.Errorf("failed to find ECS task: %v", err)
+				h.stateLock.Unlock()
+				return
+			}
+
+			if status == "DEACTIVATING" || status == "STOPPING" || status == "DEPROVISIONING" || status == "STOPPED" {
+				h.logger.Info("-----> ECS task status in terminal phase", "status", status, "arn", h.arn)
+				h.stateLock.Lock()
+				h.completedAt = time.Now()
+				h.exitResult.ExitCode = 2
+				h.exitResult.Err = fmt.Errorf("ECS task status in terminal phase: %v", status)
 				h.stateLock.Unlock()
 				return
 			}
 
 			now := time.Now().Format(time.RFC3339)
-			if _, err := fmt.Fprintf(f, "[%s] - client is remotely monitoring pid:%v\n", now, h.pid); err != nil {
+			if _, err := fmt.Fprintf(f, "[%s] - client is remotely monitoring ECS task:%v with status %v\n",
+				now, h.arn, status); err != nil {
 				h.logger.Info("-----> OpenWriter() ERROR 2", "error", err, "stdout_path", h.taskConfig.StdoutPath)
 				h.stateLock.Lock()
 				h.completedAt = time.Now()
