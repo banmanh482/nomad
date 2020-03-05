@@ -16,10 +16,10 @@ import (
 	"github.com/hashicorp/nomad/plugins/drivers"
 )
 
-var _ interfaces.TaskPoststartHook = &serviceHook{}
-var _ interfaces.TaskPreKillHook = &serviceHook{}
-var _ interfaces.TaskExitedHook = &serviceHook{}
-var _ interfaces.TaskStopHook = &serviceHook{}
+var _ interfaces.TaskPoststartHook = (*serviceHook)(nil)
+var _ interfaces.TaskPreKillHook = (*serviceHook)(nil)
+var _ interfaces.TaskExitedHook = (*serviceHook)(nil)
+var _ interfaces.TaskStopHook = (*serviceHook)(nil)
 
 type serviceHookConfig struct {
 	alloc  *structs.Allocation
