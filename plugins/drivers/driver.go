@@ -31,6 +31,9 @@ const (
 	// handle is from a driver that existed before driver plugins (v0.9). The
 	// driver should take appropriate action to handle the old driver state.
 	Pre09TaskHandleVersion = 0
+
+	//FIXME(schmichael) Hack for remote task drivers, see remotetask_hook.go
+	DetachSignal = "DETACH"
 )
 
 // DriverPlugin is the interface with drivers will implement. It is also

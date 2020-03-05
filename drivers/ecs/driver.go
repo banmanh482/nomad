@@ -322,7 +322,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)
-		h.stop()
+		h.stop(false)
 		return nil, nil, fmt.Errorf("failed to set driver state: %v", err)
 	}
 
@@ -378,7 +378,8 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 		return drivers.ErrTaskNotFound
 	}
 
-	handle.stop()
+	// Safe to always kill here as detaching will have already happened
+	handle.stop(false)
 
 	// Wait for handle to finish
 	<-handle.doneCh
@@ -397,7 +398,8 @@ func (d *Driver) DestroyTask(taskID string, force bool) error {
 		return fmt.Errorf("cannot destroy running task")
 	}
 
-	handle.stop()
+	// Safe to always kill here as detaching will have already happened
+	handle.stop(false)
 
 	d.tasks.Delete(taskID)
 	return nil
@@ -446,7 +448,19 @@ func (d *Driver) TaskEvents(ctx context.Context) (<-chan *drivers.TaskEvent, err
 }
 
 func (d *Driver) SignalTask(taskID string, signal string) error {
-	return fmt.Errorf("ECS driver does not support signals")
+	d.logger.Info("SignalTask() called", "task_id", taskID, "signal", signal)
+	h, ok := d.tasks.Get(taskID)
+	if !ok {
+		return drivers.ErrTaskNotFound
+	}
+
+	if signal != drivers.DetachSignal {
+		return fmt.Errorf("ECS driver does not support signals")
+	}
+
+	// detach
+	h.stop(true)
+	return nil
 }
 
 func (d *Driver) ExecTask(taskID string, cmd []string, timeout time.Duration) (*drivers.ExecTaskResult, error) {

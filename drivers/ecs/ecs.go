@@ -11,6 +11,7 @@ type ecsClientInterface interface {
 	DescribeTaskStatus(ctx context.Context, taskARN string) (string, error)
 	ListClusters(ctx context.Context) ([]string, error)
 	RunTask(ctx context.Context) (string, error)
+	StopTask(ctx context.Context, task, reason string) error
 }
 
 type awsEcsClient struct {
@@ -60,4 +61,18 @@ func (c awsEcsClient) RunTask(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return *resp.RunTaskOutput.Tasks[0].TaskArn, nil
+}
+
+func (c awsEcsClient) StopTask(ctx context.Context, task, reason string) error {
+	input := ecs.StopTaskInput{
+		Cluster: aws.String("jrasell-test"),
+		Task:    &task,
+	}
+
+	if reason != "" {
+		input.Reason = &reason
+	}
+
+	_, err := c.ecsClient.StopTaskRequest(&input).Send(ctx)
+	return err
 }

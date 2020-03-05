@@ -1169,6 +1169,15 @@ func (tr *TaskRunner) WaitCh() <-chan struct{} {
 // This method is safe for calling concurrently with Run and does not modify
 // the passed in allocation.
 func (tr *TaskRunner) Update(update *structs.Allocation) {
+	tr.logger.Info("-----> Update() recvd", "desired_status", update.DesiredStatus,
+		"desired_transition_migrate", update.DesiredTransition.ShouldMigrate(),
+		"desired_transition_resched", update.DesiredTransition.ShouldReschedule(),
+		"desired_transition_force_resched", update.DesiredTransition.ShouldForceReschedule(),
+		"client_status", update.ClientStatus,
+		"next_alloc", update.NextAllocation,
+		"followup", update.FollowupEvalID,
+	)
+
 	task := update.LookupTask(tr.taskName)
 	if task == nil {
 		// This should not happen and likely indicates a bug in the

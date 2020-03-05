@@ -30,6 +30,7 @@ type taskHandle struct {
 	completedAt time.Time
 	exitResult  *drivers.ExitResult
 	doneCh      chan struct{}
+	detach      bool // detach if true; kill if false
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -52,6 +53,7 @@ func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskCo
 		exitResult: &drivers.ExitResult{},
 		logger:     logger,
 		doneCh:     make(chan struct{}),
+		detach:     false,
 		ctx:        ctx,
 		cancel:     cancel,
 	}
@@ -148,13 +150,33 @@ func (h *taskHandle) run() {
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()
 
+	// Only stop task if we're not detaching
+	if !h.detach {
+		// Do not pass h.ctx, it is cancelled at this point
+		if err := h.ecsClient.StopTask(context.TODO(), h.arn, "terminated by Nomad"); err != nil {
+			h.logger.Info("-----> error stopping ECS task", "error", err, "arn", h.arn)
+			h.stateLock.Lock()
+			h.completedAt = time.Now()
+			h.exitResult.ExitCode = 3
+			h.exitResult.Err = fmt.Errorf("error stopping ecs ECS task: %v", err)
+			h.stateLock.Unlock()
+			return
+		}
+	}
+
 	h.procState = drivers.TaskStateExited
 	h.exitResult.ExitCode = 0
 	h.exitResult.Signal = 0
 	h.completedAt = time.Now()
 }
 
-func (h *taskHandle) stop() {
+func (h *taskHandle) stop(detach bool) {
 	h.logger.Info("handle.stop()")
+	h.stateLock.Lock()
+	defer h.stateLock.Unlock()
+	// Only allow transitioning from not-detaching to detaching
+	if !h.detach && detach {
+		h.detach = detach
+	}
 	h.cancel()
 }
