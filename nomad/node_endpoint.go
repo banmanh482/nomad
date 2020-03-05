@@ -1085,7 +1085,7 @@ func (n *Node) UpdateAlloc(args *structs.AllocUpdateRequest, reply *structs.Gene
 			if state.TaskHandle != nil {
 				ds = string(state.TaskHandle.DriverState)
 			}
-			n.logger.Info("-----> UpdateAlloc()", "alloc", alloc.ID, "task_name", task, "driver_state", ds)
+			n.logger.Info("-----> node.UpdateAlloc()", "alloc", alloc.ID, "task_name", task, "driver_state", ds)
 		}
 		alloc.ModifyTime = now.UTC().UnixNano()
 

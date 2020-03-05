@@ -543,6 +543,15 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 							continue
 						}
 
+						// Only copy for drains and lost allocs
+						if prevAllocation.ClientStatus != structs.AllocClientStatusLost && !prevAllocation.DesiredTransition.ShouldMigrate() {
+							// Not a lost or drained alloc, skip
+							s.logger.Info("-----> not lost or drained", "client_status", prevAllocation.ClientStatus,
+								"transition_migrate", prevAllocation.DesiredTransition.ShouldMigrate(),
+							)
+							continue
+						}
+
 						newState := structs.NewTaskState()
 						newState.TaskHandle = prevState.TaskHandle.Copy()
 						alloc.TaskStates[taskName] = newState
