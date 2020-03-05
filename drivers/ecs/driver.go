@@ -47,20 +47,31 @@ var (
 		Factory: func(l hclog.Logger) interface{} { return NewPlugin(l) },
 	}
 
-	// configSpec is the hcl specification returned by the ConfigSchema RPC
-	configSpec = hclspec.NewObject(map[string]*hclspec.Spec{
-		"enabled":    hclspec.NewAttr("enabled", "bool", false),
-		"region":     hclspec.NewAttr("region", "string", false),
-		"cluster":    hclspec.NewAttr("cluster", "string", false),
-		"access_key": hclspec.NewAttr("access_key", "string", false),
-		"secret_key": hclspec.NewAttr("secret_key", "string", false),
+	// pluginConfigSpec is the hcl specification returned by the ConfigSchema RPC
+	pluginConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
+		"enabled": hclspec.NewAttr("enabled", "bool", false),
+		"cluster": hclspec.NewAttr("cluster", "string", false),
+		"region":  hclspec.NewAttr("region", "string", false),
 	})
 
-	// taskConfigSpec is the hcl specification for the driver config section of
-	// a task within a job. It is returned in the TaskConfigSchema RPC
 	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
-		"mode":  hclspec.NewAttr("mode", "string", false),
-		"image": hclspec.NewAttr("image", "string", false),
+		"task": hclspec.NewBlock("task", false, awsECSTaskConfigSpec),
+	})
+
+	awsECSTaskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
+		"launch_type":           hclspec.NewAttr("launch_type", "string", false),
+		"task_definition":       hclspec.NewAttr("task_definition", "string", false),
+		"network_configuration": hclspec.NewBlock("network_configuration", false, awsECSNetworkConfigSpec),
+	})
+
+	awsECSNetworkConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
+		"aws_vpc_configuration": hclspec.NewBlock("aws_vpc_configuration", false, awsECSVPCConfigSpec),
+	})
+
+	awsECSVPCConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
+		"assign_public_ip": hclspec.NewAttr("assign_public_ip", "string", false),
+		"security_groups":  hclspec.NewAttr("security_groups", "list(string)", false),
+		"subnets":          hclspec.NewAttr("subnets", "list(string)", false),
 	})
 
 	// capabilities is returned by the Capabilities RPC and indicates what
@@ -105,17 +116,30 @@ type Driver struct {
 
 // DriverConfig is the driver configuration set by the SetConfig RPC call
 type DriverConfig struct {
-	Enabled   bool   `codec:"enabled"`
-	Region    string `coded:"region"`
-	Cluster   string `coded:"cluster"`
-	AccessKey string `coded:"access_key"`
-	SecretKey string `coded:"secret_key"`
+	Enabled bool   `codec:"enabled"`
+	Cluster string `codec:"cluster"`
+	Region  string `codec:"region"`
 }
 
 // TaskConfig is the driver configuration of a task within a job
 type TaskConfig struct {
-	Mode  string `codec:"mode"`
-	Image string `codec:"image"`
+	Task ECSTaskConfig `codec:"task"`
+}
+
+type ECSTaskConfig struct {
+	LaunchType           string                   `codec:"launch_type"`
+	TaskDefinition       string                   `codec:"task_definition"`
+	NetworkConfiguration TaskNetworkConfiguration `codec:"network_configuration"`
+}
+
+type TaskNetworkConfiguration struct {
+	TaskAWSVPCConfiguration TaskAWSVPCConfiguration `codec:"aws_vpc_configuration"`
+}
+
+type TaskAWSVPCConfiguration struct {
+	AssignPublicIP string   `codec:"assign_public_ip"`
+	SecurityGroups []string `codec:"security_groups"`
+	Subnets        []string `codec:"subnets"`
 }
 
 // TaskState is the state which is encoded in the handle returned in
@@ -147,7 +171,7 @@ func (d *Driver) PluginInfo() (*base.PluginInfoResponse, error) {
 }
 
 func (d *Driver) ConfigSchema() (*hclspec.Spec, error) {
-	return configSpec, nil
+	return pluginConfigSpec, nil
 }
 
 func (d *Driver) SetConfig(cfg *base.Config) error {
@@ -158,14 +182,12 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 		}
 	}
 
-	d.logger.Info("-------> config", "config", config)
-
 	d.config = &config
 	if cfg.AgentConfig != nil {
 		d.nomadConfig = cfg.AgentConfig.Driver
 	}
 
-	client, err := d.getAwsSdk()
+	client, err := d.getAwsSdk(config.Cluster)
 	if err != nil {
 		return fmt.Errorf("failed to get AWS SDK client: %v", err)
 	}
@@ -174,19 +196,18 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 	return nil
 }
 
-func (d *Driver) getAwsSdk() (ecsClientInterface, error) {
+func (d *Driver) getAwsSdk(cluster string) (ecsClientInterface, error) {
 	awsCfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
 		return nil, fmt.Errorf("unable to load SDK config: %v", err)
 	}
 
-	//if d.config.Region != "" {
-	//	awsCfg.Region = d.config.Region
-	//}
-
-	awsCfg.Region = "us-east-1"
+	if d.config.Region != "" {
+		awsCfg.Region = d.config.Region
+	}
 
 	return awsEcsClient{
+		cluster:   cluster,
 		ecsClient: ecs.New(awsCfg),
 	}, nil
 }
@@ -232,7 +253,7 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 	attrs := map[string]*pstructs.Attribute{}
 
 	if d.config.Enabled {
-		if _, err := d.client.ListClusters(ctx); err != nil {
+		if err := d.client.DescribeCluster(ctx); err != nil {
 			health = drivers.HealthStateUnhealthy
 			desc = err.Error()
 			attrs["driver.ecs"] = pstructs.NewBoolAttribute(false)
@@ -301,11 +322,13 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed to decode driver config: %v", err)
 	}
 
+	d.logger.Info("task config", "config", driverConfig)
+
 	d.logger.Info("starting task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
 
-	arn, err := d.client.RunTask(context.Background())
+	arn, err := d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to start ECS task: %v", err)
 	}
@@ -463,6 +486,6 @@ func (d *Driver) SignalTask(taskID string, signal string) error {
 	return nil
 }
 
-func (d *Driver) ExecTask(taskID string, cmd []string, timeout time.Duration) (*drivers.ExecTaskResult, error) {
+func (d *Driver) ExecTask(_ string, _ []string, _ time.Duration) (*drivers.ExecTaskResult, error) {
 	return nil, fmt.Errorf("ECS driver does not support exec")
 }

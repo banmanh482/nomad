@@ -112,12 +112,7 @@ func (h *taskHandle) run() {
 
 			status, err := h.ecsClient.DescribeTaskStatus(h.ctx, h.arn)
 			if err != nil {
-				h.logger.Info("-----> failed to find ECS task", "error", err, "arn", h.arn)
-				h.stateLock.Lock()
-				h.completedAt = time.Now()
-				h.exitResult.ExitCode = 2
-				h.exitResult.Err = fmt.Errorf("failed to find ECS task: %v", err)
-				h.stateLock.Unlock()
+				h.handleRunError(err, "failed to find ECS task")
 				return
 			}
 
@@ -134,11 +129,7 @@ func (h *taskHandle) run() {
 			now := time.Now().Format(time.RFC3339)
 			if _, err := fmt.Fprintf(f, "[%s] - client is remotely monitoring ECS task:%v with status %v\n",
 				now, h.arn, status); err != nil {
-				h.logger.Info("-----> OpenWriter() ERROR 2", "error", err, "stdout_path", h.taskConfig.StdoutPath)
-				h.stateLock.Lock()
-				h.completedAt = time.Now()
-				h.exitResult.ExitCode = 2
-				h.exitResult.Err = fmt.Errorf("failed to write to stdout: %v", err)
+				h.handleRunError(err, "failed to write to stdout")
 			}
 
 		case <-h.ctx.Done():
@@ -154,12 +145,7 @@ func (h *taskHandle) run() {
 	if !h.detach {
 		// Do not pass h.ctx, it is cancelled at this point
 		if err := h.ecsClient.StopTask(context.TODO(), h.arn, "terminated by Nomad"); err != nil {
-			h.logger.Info("-----> error stopping ECS task", "error", err, "arn", h.arn)
-			h.stateLock.Lock()
-			h.completedAt = time.Now()
-			h.exitResult.ExitCode = 3
-			h.exitResult.Err = fmt.Errorf("error stopping ecs ECS task: %v", err)
-			h.stateLock.Unlock()
+			h.handleRunError(err, "error stopping ECS task")
 			return
 		}
 	}
@@ -179,4 +165,12 @@ func (h *taskHandle) stop(detach bool) {
 		h.detach = detach
 	}
 	h.cancel()
+}
+
+func (h *taskHandle) handleRunError(err error, context string) {
+	h.stateLock.Lock()
+	h.completedAt = time.Now()
+	h.exitResult.ExitCode = 2
+	h.exitResult.Err = fmt.Errorf("%s: %v", context, err)
+	h.stateLock.Unlock()
 }
