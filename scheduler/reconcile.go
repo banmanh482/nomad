@@ -413,7 +413,8 @@ func (a *allocReconciler) computeGroup(group string, all allocSet) bool {
 	// * The deployment is not paused or failed
 	// * Not placing any canaries
 	// * If there are any canaries that they have been promoted
-	place := a.computePlacements(tg, nameIndex, untainted, migrate, rescheduleNow)
+	// * An alloc was lost
+	place := a.computePlacements(tg, nameIndex, untainted, migrate, rescheduleNow, lost)
 	if !existingDeployment {
 		dstate.DesiredTotal += len(place)
 	}
@@ -437,6 +438,7 @@ func (a *allocReconciler) computeGroup(group string, all allocSet) bool {
 		// have lost allocations or allocations that require rescheduling now,
 		// we do so regardless to avoid odd user experiences.
 		if len(lost) != 0 {
+			a.logger.Info("----> computeGroup() lost>0", "lost", len(lost), "place", len(place))
 			allowed := helper.IntMin(len(lost), len(place))
 			desiredChanges.Place += uint64(allowed)
 			for _, p := range place[:allowed] {
@@ -658,9 +660,10 @@ func (a *allocReconciler) computeLimit(group *structs.TaskGroup, untainted, dest
 }
 
 // computePlacement returns the set of allocations to place given the group
-// definition, the set of untainted, migrating and reschedule allocations for the group.
+// definition, the set of untainted, migrating, reschedule, and lost
+// allocations for the group.
 func (a *allocReconciler) computePlacements(group *structs.TaskGroup,
-	nameIndex *allocNameIndex, untainted, migrate allocSet, reschedule allocSet) []allocPlaceResult {
+	nameIndex *allocNameIndex, untainted, migrate, reschedule, lost allocSet) []allocPlaceResult {
 
 	// Add rescheduled placement results
 	var place []allocPlaceResult
@@ -674,8 +677,25 @@ func (a *allocReconciler) computePlacements(group *structs.TaskGroup,
 		})
 	}
 
+	// Add replacements for lost allocs
+	for _, alloc := range lost {
+		a.logger.Info("----> computePlacements()", "lost", alloc.ID)
+		place = append(place, allocPlaceResult{
+			name:          alloc.Name,
+			taskGroup:     group,
+			previousAlloc: alloc,
+			reschedule:    false,
+			canary:        alloc.DeploymentStatus.IsCanary(),
+		})
+	}
+
+	a.logger.Info("----> computePlacements()",
+		"count", group.Count,
+		"untainted", len(untainted), "migrate", len(migrate), "reschedule", len(reschedule), "lost", len(lost),
+	)
+
 	// Hot path the nothing to do case
-	existing := len(untainted) + len(migrate) + len(reschedule)
+	existing := len(untainted) + len(migrate) + len(reschedule) + len(lost)
 	if existing >= group.Count {
 		return place
 	}
@@ -699,8 +719,7 @@ func (a *allocReconciler) computePlacements(group *structs.TaskGroup,
 func (a *allocReconciler) computeStop(group *structs.TaskGroup, nameIndex *allocNameIndex,
 	untainted, migrate, lost, canaries allocSet, canaryState bool) allocSet {
 
-	// Mark all lost allocations for stop. Previous allocation doesn't matter
-	// here since it is on a lost node
+	// Mark all lost allocations for stop.
 	var stop allocSet
 	stop = stop.union(lost)
 	a.markStop(lost, structs.AllocClientStatusLost, allocLost)
