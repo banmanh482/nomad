@@ -145,11 +145,14 @@ func (h *taskHandle) run() {
 
 	// Only stop task if we're not detaching
 	if !h.detach {
+		h.logger.Info("-----> handle.run STOPPING")
 		// Do not pass h.ctx, it is cancelled at this point
 		if err := h.ecsClient.StopTask(context.TODO(), h.arn, "terminated by Nomad"); err != nil {
 			h.handleRunError(err, "error stopping ECS task")
 			return
 		}
+	} else {
+		h.logger.Info("-----> handle.run DETACHING")
 	}
 
 	h.procState = drivers.TaskStateExited
