@@ -259,7 +259,7 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 			attrs["driver.ecs"] = pstructs.NewBoolAttribute(false)
 		} else {
 			health = drivers.HealthStateHealthy
-			desc = "ready"
+			desc = "Healthy"
 			attrs["driver.ecs"] = pstructs.NewBoolAttribute(true)
 		}
 	} else {

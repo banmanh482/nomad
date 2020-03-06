@@ -544,21 +544,30 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 						}
 
 						// Only copy for drains and lost allocs
-						if prevAllocation.ClientStatus != structs.AllocClientStatusLost && !prevAllocation.DesiredTransition.ShouldMigrate() {
+						if prevAllocation.ClientStatus == structs.AllocClientStatusLost && prevAllocation.DesiredTransition.ShouldMigrate() {
 							// Not a lost or drained alloc, skip
-							s.logger.Info("-----> not lost or drained", "client_status", prevAllocation.ClientStatus,
+							s.logger.Info("-----> lost or drained", "client_status", prevAllocation.ClientStatus,
 								"transition_migrate", prevAllocation.DesiredTransition.ShouldMigrate(),
+								"prevState.Failed", prevState.Failed, "prevState.State", prevState.State,
 							)
+							newState := structs.NewTaskState()
+							newState.TaskHandle = prevState.TaskHandle.Copy()
+							alloc.TaskStates[taskName] = newState
 							continue
 						}
 
-						newState := structs.NewTaskState()
-						newState.TaskHandle = prevState.TaskHandle.Copy()
-						alloc.TaskStates[taskName] = newState
+						// THIS CAN'T BE RIGHT OR SAFE...but it works.
+						if !prevState.Failed && prevState.State == "running" {
+							s.logger.Info("-----> not failed and running", "prevState.Failed", prevState.Failed, "prevState.State", prevState.State)
+							newState := structs.NewTaskState()
+							newState.TaskHandle = prevState.TaskHandle.Copy()
+							alloc.TaskStates[taskName] = newState
+							continue
+						}
 
-						//FIXME(schmichael) remove
-						s.logger.Info("--------> copied task handle", "alloc", alloc.ID, "prev_alloc", prevAllocation.ID,
-							"handle_bytes", len(newState.TaskHandle.DriverState))
+						////FIXME(schmichael) remove
+						//s.logger.Info("--------> copied task handle", "alloc", alloc.ID, "prev_alloc", prevAllocation.ID,
+						//	"handle_bytes", len(newState.TaskHandle.DriverState))
 					}
 				}
 

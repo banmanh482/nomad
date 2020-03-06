@@ -116,20 +116,22 @@ func (h *taskHandle) run() {
 				return
 			}
 
-			if status == "DEACTIVATING" || status == "STOPPING" || status == "DEPROVISIONING" || status == "STOPPED" {
-				h.logger.Info("-----> ECS task status in terminal phase", "status", status, "arn", h.arn)
-				h.stateLock.Lock()
-				h.completedAt = time.Now()
-				h.exitResult.ExitCode = 2
-				h.exitResult.Err = fmt.Errorf("ECS task status in terminal phase: %v", status)
-				h.stateLock.Unlock()
-				return
-			}
-
+			// Write the health status before checking what it is ensures the
+			// alloc logs include the health during the ECS tasks terminal
+			// phase.
 			now := time.Now().Format(time.RFC3339)
-			if _, err := fmt.Fprintf(f, "[%s] - client is remotely monitoring ECS task:%v with status %v\n",
+			if _, err := fmt.Fprintf(f, "[%s] - client is remotely monitoring ECS task: %v with status %v\n",
 				now, h.arn, status); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
+			}
+
+			// ECS task has terminal status phase, meaning the task is going to
+			// stop. If we are in this phase, the driver should exit and pass
+			// this to the servers so that a new allocation, and ECS task can
+			// be started.
+			if status == "DEACTIVATING" || status == "STOPPING" || status == "DEPROVISIONING" || status == "STOPPED" {
+				h.handleRunError(fmt.Errorf("ECS task status in terminal phase"), "task status: "+status)
+				return
 			}
 
 		case <-h.ctx.Done():
