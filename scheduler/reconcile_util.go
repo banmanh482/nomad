@@ -34,6 +34,9 @@ type placementResult interface {
 	// StopPreviousAlloc returns whether the previous allocation should be
 	// stopped and if so the status description.
 	StopPreviousAlloc() (bool, string)
+
+	// PreviousLost is true if the previous allocation was lost.
+	PreviousLost() bool
 }
 
 // allocStopResult contains the information required to stop a single allocation
@@ -51,6 +54,7 @@ type allocPlaceResult struct {
 	taskGroup     *structs.TaskGroup
 	previousAlloc *structs.Allocation
 	reschedule    bool
+	lost          bool
 }
 
 func (a allocPlaceResult) TaskGroup() *structs.TaskGroup           { return a.taskGroup }
@@ -59,6 +63,7 @@ func (a allocPlaceResult) Canary() bool                            { return a.ca
 func (a allocPlaceResult) PreviousAllocation() *structs.Allocation { return a.previousAlloc }
 func (a allocPlaceResult) IsRescheduling() bool                    { return a.reschedule }
 func (a allocPlaceResult) StopPreviousAlloc() (bool, string)       { return false, "" }
+func (a allocPlaceResult) PreviousLost() bool                      { return a.lost }
 
 // allocDestructiveResult contains the information required to do a destructive
 // update. Destructive changes should be applied atomically, as in the old alloc
@@ -75,6 +80,7 @@ func (a allocDestructiveResult) Name() string                            { retur
 func (a allocDestructiveResult) Canary() bool                            { return false }
 func (a allocDestructiveResult) PreviousAllocation() *structs.Allocation { return a.stopAlloc }
 func (a allocDestructiveResult) IsRescheduling() bool                    { return false }
+func (a allocDestructiveResult) PreviousLost() bool                      { return false }
 func (a allocDestructiveResult) StopPreviousAlloc() (bool, string) {
 	return true, a.stopStatusDescription
 }

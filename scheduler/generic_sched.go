@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	log "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-memdb"
 	"github.com/hashicorp/go-multierror"
@@ -529,46 +530,7 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 					//place to copy state? if so
 					//encapsulate in a func for easier
 					//testing
-					//FIXME(schmichael) do *not* copy for destructive updates; only copy for drains & lost
-					// Copy task handles if they exist
-					alloc.TaskStates = make(map[string]*structs.TaskState, len(alloc.AllocatedResources.Tasks))
-					for taskName, prevState := range prevAllocation.TaskStates {
-						if prevState.TaskHandle == nil {
-							// No task handle, skip
-							continue
-						}
-
-						if _, ok := alloc.AllocatedResources.Tasks[taskName]; !ok {
-							// Task dropped in update, skip
-							continue
-						}
-
-						// Only copy for drains and lost allocs
-						if prevAllocation.ClientStatus == structs.AllocClientStatusLost && prevAllocation.DesiredTransition.ShouldMigrate() {
-							// Not a lost or drained alloc, skip
-							s.logger.Info("-----> lost or drained", "client_status", prevAllocation.ClientStatus,
-								"transition_migrate", prevAllocation.DesiredTransition.ShouldMigrate(),
-								"prevState.Failed", prevState.Failed, "prevState.State", prevState.State,
-							)
-							newState := structs.NewTaskState()
-							newState.TaskHandle = prevState.TaskHandle.Copy()
-							alloc.TaskStates[taskName] = newState
-							continue
-						}
-
-						// THIS CAN'T BE RIGHT OR SAFE...but it works.
-						if !prevState.Failed && prevState.State == "running" {
-							s.logger.Info("-----> not failed and running", "prevState.Failed", prevState.Failed, "prevState.State", prevState.State)
-							newState := structs.NewTaskState()
-							newState.TaskHandle = prevState.TaskHandle.Copy()
-							alloc.TaskStates[taskName] = newState
-							continue
-						}
-
-						////FIXME(schmichael) remove
-						//s.logger.Info("--------> copied task handle", "alloc", alloc.ID, "prev_alloc", prevAllocation.ID,
-						//	"handle_bytes", len(newState.TaskHandle.DriverState))
-					}
+					transferTaskState(s.logger, alloc, prevAllocation, missing.PreviousLost())
 				}
 
 				// If we are placing a canary and we found a match, add the canary
@@ -604,6 +566,51 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 	}
 
 	return nil
+}
+
+// transferTaskState copies task handles from previous allocations to
+// replacement allocations when the previous allocation is being drained or was
+// lost.
+//
+// The previous allocation will be marked as lost as part of this plan, so its
+// ClientStatus is not yet lost.
+func transferTaskState(logger hclog.Logger, alloc, prev *structs.Allocation, prevLost bool) {
+	// Don't transfer state from client terminal allocs
+	if prev.ClientTerminalStatus() {
+		logger.Info("----> transferTaskState prev alloc terminal; SKIPPING", "prev_state", prev.ClientStatus)
+		return
+	}
+
+	// If previous allocation is not lost and not draining, do not copy
+	// task handles.
+	if !prevLost && !prev.DesiredTransition.ShouldMigrate() {
+		logger.Info("-----> transferTaskState SKIPPING", "alloc", alloc.ID, "prev", prev.ID,
+			"lost", prevLost, "migrated", prev.DesiredTransition.ShouldMigrate())
+		return
+	}
+
+	//FIXME(schmichael) do *not* copy for destructive updates; only copy for drains & lost
+	// Copy task handles if they exist
+	alloc.TaskStates = make(map[string]*structs.TaskState, len(alloc.AllocatedResources.Tasks))
+	for taskName, prevState := range prev.TaskStates {
+		if prevState.TaskHandle == nil {
+			// No task handle, skip
+			continue
+		}
+
+		if _, ok := alloc.AllocatedResources.Tasks[taskName]; !ok {
+			// Task dropped in update, skip
+			continue
+		}
+
+		// Copy state
+		logger.Info("-----> transferTaskState COPYING", "alloc", alloc.ID, "prev", prev.ID,
+			"lost", prevLost, "migrated", prev.DesiredTransition.ShouldMigrate())
+
+		newState := structs.NewTaskState()
+		newState.TaskHandle = prevState.TaskHandle.Copy()
+		alloc.TaskStates[taskName] = newState
+	}
 }
 
 // getSelectOptions sets up preferred nodes and penalty nodes
