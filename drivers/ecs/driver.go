@@ -401,8 +401,9 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 		return drivers.ErrTaskNotFound
 	}
 
-	// Safe to always kill here as detaching will have already happened
-	handle.stop(false)
+	// Detach is that's the signal, otherwise kill
+	detach := signal == drivers.DetachSignal
+	handle.stop(detach)
 
 	// Wait for handle to finish
 	<-handle.doneCh
@@ -471,19 +472,7 @@ func (d *Driver) TaskEvents(ctx context.Context) (<-chan *drivers.TaskEvent, err
 }
 
 func (d *Driver) SignalTask(taskID string, signal string) error {
-	d.logger.Info("SignalTask() called", "task_id", taskID, "signal", signal)
-	h, ok := d.tasks.Get(taskID)
-	if !ok {
-		return drivers.ErrTaskNotFound
-	}
-
-	if signal != drivers.DetachSignal {
-		return fmt.Errorf("ECS driver does not support signals")
-	}
-
-	// detach
-	h.stop(true)
-	return nil
+	return fmt.Errorf("ECS driver does not support signals")
 }
 
 func (d *Driver) ExecTask(_ string, _ []string, _ time.Duration) (*drivers.ExecTaskResult, error) {

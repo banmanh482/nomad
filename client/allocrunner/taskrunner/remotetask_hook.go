@@ -114,7 +114,9 @@ func (h *remoteTaskHook) PreKilling(ctx context.Context, req *interfaces.TaskPre
 	alloc := h.tr.Alloc()
 	switch {
 	case alloc.ClientStatus == structs.AllocClientStatusLost:
+		// Continue on; lost allocs should just detach
 	case alloc.DesiredTransition.ShouldMigrate():
+		// Continue on; migrating allocs should just detach
 	default:
 		// Nothing to do exit early
 		h.logger.Info("----> remoteTaskHook.PreKilling found no applicable state; doing nothing")
@@ -130,9 +132,7 @@ func (h *remoteTaskHook) PreKilling(ctx context.Context, req *interfaces.TaskPre
 
 	//HACK DetachSignal indicates to the remote task driver that it should
 	//detach this remote task and ignore further actions against it.
-	if err := driverHandle.Signal(drivers.DetachSignal); err != nil {
-		// Soft-fail
-		h.logger.Error("error detaching from remote task; it will be killed and restarted", "error", err)
-	}
+	driverHandle.SetKillSignal(drivers.DetachSignal)
+	h.logger.Info("----> remoteTaskHook.PreKilling detach signal SET")
 	return nil
 }
