@@ -4,7 +4,6 @@ import (
 	"github.com/hashicorp/nomad/drivers/docker"
 	"github.com/hashicorp/nomad/drivers/ecs"
 	"github.com/hashicorp/nomad/drivers/exec"
-	"github.com/hashicorp/nomad/drivers/fakeremote"
 	"github.com/hashicorp/nomad/drivers/java"
 	"github.com/hashicorp/nomad/drivers/qemu"
 	"github.com/hashicorp/nomad/drivers/rawexec"
@@ -21,6 +20,5 @@ func init() {
 	RegisterDeferredConfig(docker.PluginID, docker.PluginConfig, docker.PluginLoader)
 
 	//FIXME(schmichael) Remove - for dev purposes only
-	Register(fakeremote.PluginID, fakeremote.PluginConfig)
 	Register(ecs.PluginID, ecs.PluginConfig)
 }
