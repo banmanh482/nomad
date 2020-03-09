@@ -275,14 +275,16 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 }
 
 func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
-	d.logger.Info("RecoverTask() called", "version", handle.Version, "task_config.id", handle.Config.ID, "task_state", handle.State, "driver_state_bytes", len(handle.DriverState))
+	d.logger.Info("recovering ecs task", "version", handle.Version,
+		"task_config.id", handle.Config.ID, "task_state", handle.State,
+		"driver_state_bytes", len(handle.DriverState))
 	if handle == nil {
 		return fmt.Errorf("handle cannot be nil")
 	}
 
 	// If already attached to handle there's nothing to recover.
 	if _, ok := d.tasks.Get(handle.Config.ID); ok {
-		d.logger.Info("nothing to recover; task already exists",
+		d.logger.Info("no ecs task to recover; task already exists",
 			"task_id", handle.Config.ID,
 			"task_name", handle.Config.Name,
 		)
@@ -296,19 +298,18 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 		return fmt.Errorf("failed to decode task state from handle: %v", err)
 	}
 
-	d.logger.Info("RecoverTask() -> Reattached", "arn", taskState.ARN, "started_at", taskState.StartedAt)
+	d.logger.Info("ecs task recovered", "arn", taskState.ARN,
+		"started_at", taskState.StartedAt)
 
 	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
 	d.tasks.Set(handle.Config.ID, h)
 
 	go h.run()
-	d.logger.Info("RecoverTask() DONE", "arn", taskState.ARN)
 	return nil
 }
 
 func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drivers.DriverNetwork, error) {
-	d.logger.Info("StartTask() called")
 	if !d.config.Enabled {
 		return nil, nil, fmt.Errorf("disabled")
 	}
@@ -322,9 +323,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed to decode driver config: %v", err)
 	}
 
-	d.logger.Info("task config", "config", driverConfig)
-
-	d.logger.Info("starting task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
+	d.logger.Info("starting ecs task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
 
@@ -339,7 +338,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		ARN:        arn,
 	}
 
-	d.logger.Info("StartTask() -> started", "arn", driverState.ARN, "started_at", driverState.StartedAt)
+	d.logger.Info("ecs task started", "arn", driverState.ARN, "started_at", driverState.StartedAt)
 
 	h := newTaskHandle(d.logger, driverState, cfg, d.client)
 
@@ -395,7 +394,8 @@ func (d *Driver) handleWait(ctx context.Context, handle *taskHandle, ch chan *dr
 }
 
 func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) error {
-	d.logger.Info("StopTask() called", "task_id", taskID, "timeout", timeout, "signal", signal)
+	d.logger.Info("stopping ecs task", "task_id", taskID, "timeout", timeout,
+		"signal", signal)
 	handle, ok := d.tasks.Get(taskID)
 	if !ok {
 		return drivers.ErrTaskNotFound
@@ -406,13 +406,20 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	handle.stop(detach)
 
 	// Wait for handle to finish
-	<-handle.doneCh
+	select {
+	case <-handle.doneCh:
+	case <-time.After(timeout):
+		return fmt.Errorf("timed out waiting for ecs task (id=%s) to stop (detach=%t)",
+			taskID, detach)
+	}
 
+	d.logger.Info("ecs task stopped", "task_id", taskID, "timeout", timeout,
+		"signal", signal)
 	return nil
 }
 
 func (d *Driver) DestroyTask(taskID string, force bool) error {
-	d.logger.Info("DestroyTask() called", "task_id", taskID, "force", force)
+	d.logger.Info("destroying ecs task", "task_id", taskID, "force", force)
 	handle, ok := d.tasks.Get(taskID)
 	if !ok {
 		return drivers.ErrTaskNotFound
@@ -426,6 +433,7 @@ func (d *Driver) DestroyTask(taskID string, force bool) error {
 	handle.stop(false)
 
 	d.tasks.Delete(taskID)
+	d.logger.Info("ecs task destroyed", "task_id", taskID, "force", force)
 	return nil
 }
 
@@ -438,7 +446,7 @@ func (d *Driver) InspectTask(taskID string) (*drivers.TaskStatus, error) {
 }
 
 func (d *Driver) TaskStats(ctx context.Context, taskID string, interval time.Duration) (<-chan *structs.TaskResourceUsage, error) {
-	d.logger.Info("TaskStats() called", "task_id", taskID)
+	d.logger.Info("sending ecs task stats", "task_id", taskID)
 	_, ok := d.tasks.Get(taskID)
 	if !ok {
 		return nil, drivers.ErrTaskNotFound
@@ -447,6 +455,7 @@ func (d *Driver) TaskStats(ctx context.Context, taskID string, interval time.Dur
 	ch := make(chan *drivers.TaskResourceUsage)
 
 	go func() {
+		defer d.logger.Info("stopped sending ecs task stats", "task_id", taskID)
 		defer close(ch)
 		for {
 			select {
@@ -467,7 +476,7 @@ func (d *Driver) TaskStats(ctx context.Context, taskID string, interval time.Dur
 }
 
 func (d *Driver) TaskEvents(ctx context.Context) (<-chan *drivers.TaskEvent, error) {
-	d.logger.Info("TaskEvents() called")
+	d.logger.Info("retrieving task events")
 	return d.eventer.TaskEvents(ctx)
 }
 

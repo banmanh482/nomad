@@ -92,10 +92,8 @@ func (h *taskHandle) run() {
 	}
 	h.stateLock.Unlock()
 
-	h.logger.Info("-----> OpenWriter()", "stdout_path", h.taskConfig.StdoutPath)
 	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 	if err != nil {
-		h.logger.Info("-----> OpenWriter() ERROR 1", "error", err, "stdout_path", h.taskConfig.StdoutPath)
 		h.stateLock.Lock()
 		defer h.stateLock.Unlock()
 		h.completedAt = time.Now()
@@ -138,21 +136,17 @@ func (h *taskHandle) run() {
 		}
 	}
 
-	h.logger.Info("-----> handle.run DONE", "ctx_error", h.ctx.Err(), "stdout_path", h.taskConfig.StdoutPath)
-
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()
 
 	// Only stop task if we're not detaching
+	h.logger.Debug("stopping task", "detach", h.detach)
 	if !h.detach {
-		h.logger.Info("-----> handle.run STOPPING")
 		// Do not pass h.ctx, it is cancelled at this point
 		if err := h.ecsClient.StopTask(context.TODO(), h.arn, "terminated by Nomad"); err != nil {
 			h.handleRunError(err, "error stopping ECS task")
 			return
 		}
-	} else {
-		h.logger.Info("-----> handle.run DETACHING")
 	}
 
 	h.procState = drivers.TaskStateExited

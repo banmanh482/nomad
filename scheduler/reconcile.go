@@ -439,7 +439,6 @@ func (a *allocReconciler) computeGroup(group string, all allocSet) bool {
 		// have lost allocations or allocations that require rescheduling now,
 		// we do so regardless to avoid odd user experiences.
 		if len(lost) != 0 {
-			a.logger.Info("----> computeGroup() lost>0", "lost", len(lost), "place", len(place))
 			allowed := helper.IntMin(len(lost), len(place))
 			desiredChanges.Place += uint64(allowed)
 			for _, p := range place[:allowed] {
@@ -681,7 +680,6 @@ func (a *allocReconciler) computePlacements(group *structs.TaskGroup,
 
 	// Add replacements for lost allocs
 	for _, alloc := range lost {
-		a.logger.Info("----> computePlacements()", "lost", alloc.ID)
 		place = append(place, allocPlaceResult{
 			name:          alloc.Name,
 			taskGroup:     group,
@@ -691,11 +689,6 @@ func (a *allocReconciler) computePlacements(group *structs.TaskGroup,
 			lost:          true,
 		})
 	}
-
-	a.logger.Info("----> computePlacements()",
-		"count", group.Count,
-		"untainted", len(untainted), "migrate", len(migrate), "reschedule", len(reschedule), "lost", len(lost),
-	)
 
 	// Hot path the nothing to do case
 	existing := len(untainted) + len(migrate) + len(reschedule) + len(lost)

@@ -7,7 +7,6 @@ import (
 	"github.com/hashicorp/nomad/client/allocrunner/interfaces"
 	"github.com/hashicorp/nomad/nomad/structs"
 	"github.com/hashicorp/nomad/plugins/drivers"
-	"github.com/kr/pretty"
 )
 
 //FIXME(schmichael) move and reuse for other hooks that disable themselves?
@@ -34,7 +33,7 @@ type remoteTaskHook struct {
 func newRemoteTaskHook(tr *TaskRunner, logger hclog.Logger) interfaces.TaskHook {
 	//FIXME(schmichael) determine when driverCaps can be nil, does it need a lock?
 	if tr.driverCapabilities == nil || !tr.driverCapabilities.RemoteTasks {
-		tr.logger.Info("-----> not a remote task skipping hook")
+		tr.logger.Trace("not a remote task driver; disabling hook")
 		return noopHook{(*remoteTaskHook)(nil).Name()}
 	}
 
@@ -51,8 +50,8 @@ func (h *remoteTaskHook) Name() string {
 
 func (h *remoteTaskHook) Prestart(ctx context.Context, req *interfaces.TaskPrestartRequest, resp *interfaces.TaskPrestartResponse) error {
 	if h.tr.getDriverHandle() != nil {
-		//FIXME remove log line
-		h.logger.Info("----> loadTaskHandle skipping: driver handle already exists")
+		// Driver handle already exists so don't try to load remote
+		// task handle
 		resp.Done = true
 		return nil
 	}
@@ -61,10 +60,9 @@ func (h *remoteTaskHook) Prestart(ctx context.Context, req *interfaces.TaskPrest
 	th := drivers.NewTaskHandleFromState(h.tr.state)
 	h.tr.stateLock.Unlock()
 
+	// Task handle will be nil if there was no previous allocation or if
+	// this is a destructive update
 	if th == nil {
-		//FIXME remove
-		h.logger.Info("----> loadTaskHandle did NOT find a task handle", "state", pretty.Sprint(h.tr.state))
-
 		resp.Done = true
 		return nil
 	}
@@ -87,8 +85,7 @@ func (h *remoteTaskHook) Prestart(ctx context.Context, req *interfaces.TaskPrest
 		return nil
 	}
 
-	//FIXME remove
-	h.logger.Info("----> loadTaskHandle DID find a task handle", "id", th.Config.ID)
+	h.logger.Trace("using remote task handle")
 
 	h.tr.setDriverHandle(NewDriverHandle(h.tr.driver, th.Config.ID, h.tr.Task(), taskInfo.NetworkOverride))
 
@@ -99,8 +96,6 @@ func (h *remoteTaskHook) Prestart(ctx context.Context, req *interfaces.TaskPrest
 
 	h.tr.UpdateState(structs.TaskStateRunning, structs.NewTaskEvent(structs.TaskStarted))
 
-	h.tr.logger.Info("----> loadTaskHandle done")
-
 	resp.Done = true
 	return nil
 }
@@ -108,8 +103,8 @@ func (h *remoteTaskHook) Prestart(ctx context.Context, req *interfaces.TaskPrest
 // PreKilling tells the remote task driver to detach a remote task instead of
 // stopping it.
 //
-//FIXME(schmichael) this is a super hacky way to signal "detach" instead of
-//"destroy" and requires the driver to keep extra state
+//FIXME(schmichael) this is a hacky way to signal "detach" instead of "destroy"
+//and requires the driver to keep extra state
 func (h *remoteTaskHook) PreKilling(ctx context.Context, req *interfaces.TaskPreKillRequest, resp *interfaces.TaskPreKillResponse) error {
 	alloc := h.tr.Alloc()
 	switch {
@@ -119,20 +114,17 @@ func (h *remoteTaskHook) PreKilling(ctx context.Context, req *interfaces.TaskPre
 		// Continue on; migrating allocs should just detach
 	default:
 		// Nothing to do exit early
-		h.logger.Info("----> remoteTaskHook.PreKilling found no applicable state; doing nothing")
 		return nil
 	}
 
 	driverHandle := h.tr.getDriverHandle()
 	if driverHandle == nil {
 		// Nothing to do exit early
-		h.logger.Info("----> remoteTaskHook.PreKilling found no driver handle; doing nothing")
 		return nil
 	}
 
 	//HACK DetachSignal indicates to the remote task driver that it should
 	//detach this remote task and ignore further actions against it.
 	driverHandle.SetKillSignal(drivers.DetachSignal)
-	h.logger.Info("----> remoteTaskHook.PreKilling detach signal SET")
 	return nil
 }

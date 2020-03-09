@@ -1031,7 +1031,7 @@ func (tr *TaskRunner) UpdateState(state string, event *structs.TaskEvent) {
 	// Store task handle for remote tasks
 	//FIXME(schmichael) determine when driverCaps can be nil, does it need a lock?
 	if tr.driverCapabilities != nil && tr.driverCapabilities.RemoteTasks {
-		tr.logger.Info("-----> UpdateState() storing handle", "state", state)
+		tr.logger.Trace("storing remote task handle state")
 		tr.localState.TaskHandle.Store(tr.state)
 	}
 
@@ -1132,8 +1132,6 @@ func (tr *TaskRunner) appendEvent(event *structs.TaskEvent) error {
 	// Ensure the event is populated with human readable strings
 	event.PopulateEventDisplayMessage()
 
-	tr.logger.Info("------> appendEvent()", "type", event.Type, "msg", event.Message, "exit_code", event.ExitCode, "signal", event.Signal, "reason", event.RestartReason)
-
 	// Propagate failure from event to task state
 	if event.FailsTask {
 		tr.state.Failed = true
@@ -1169,15 +1167,6 @@ func (tr *TaskRunner) WaitCh() <-chan struct{} {
 // This method is safe for calling concurrently with Run and does not modify
 // the passed in allocation.
 func (tr *TaskRunner) Update(update *structs.Allocation) {
-	tr.logger.Info("-----> Update() recvd", "desired_status", update.DesiredStatus,
-		"desired_transition_migrate", update.DesiredTransition.ShouldMigrate(),
-		"desired_transition_resched", update.DesiredTransition.ShouldReschedule(),
-		"desired_transition_force_resched", update.DesiredTransition.ShouldForceReschedule(),
-		"client_status", update.ClientStatus,
-		"next_alloc", update.NextAllocation,
-		"followup", update.FollowupEvalID,
-	)
-
 	task := update.LookupTask(tr.taskName)
 	if task == nil {
 		// This should not happen and likely indicates a bug in the

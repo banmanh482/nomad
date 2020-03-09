@@ -1079,14 +1079,6 @@ func (n *Node) UpdateAlloc(args *structs.AllocUpdateRequest, reply *structs.Gene
 	var evals []*structs.Evaluation
 
 	for _, alloc := range args.Alloc {
-		//FIXME(schmichael) remove
-		for task, state := range alloc.TaskStates {
-			ds := "<none>"
-			if state.TaskHandle != nil {
-				ds = string(state.TaskHandle.DriverState)
-			}
-			n.logger.Info("-----> node.UpdateAlloc()", "alloc", alloc.ID, "task_name", task, "driver_state", ds)
-		}
 		alloc.ModifyTime = now.UTC().UnixNano()
 
 		// Add an evaluation if this is a failed alloc that is eligible for rescheduling

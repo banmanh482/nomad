@@ -577,15 +577,12 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 func transferTaskState(logger hclog.Logger, alloc, prev *structs.Allocation, prevLost bool) {
 	// Don't transfer state from client terminal allocs
 	if prev.ClientTerminalStatus() {
-		logger.Info("----> transferTaskState prev alloc terminal; SKIPPING", "prev_state", prev.ClientStatus)
 		return
 	}
 
 	// If previous allocation is not lost and not draining, do not copy
 	// task handles.
 	if !prevLost && !prev.DesiredTransition.ShouldMigrate() {
-		logger.Info("-----> transferTaskState SKIPPING", "alloc", alloc.ID, "prev", prev.ID,
-			"lost", prevLost, "migrated", prev.DesiredTransition.ShouldMigrate())
 		return
 	}
 
@@ -604,9 +601,6 @@ func transferTaskState(logger hclog.Logger, alloc, prev *structs.Allocation, pre
 		}
 
 		// Copy state
-		logger.Info("-----> transferTaskState COPYING", "alloc", alloc.ID, "prev", prev.ID,
-			"lost", prevLost, "migrated", prev.DesiredTransition.ShouldMigrate())
-
 		newState := structs.NewTaskState()
 		newState.TaskHandle = prevState.TaskHandle.Copy()
 		alloc.TaskStates[taskName] = newState
