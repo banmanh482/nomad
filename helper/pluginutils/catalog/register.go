@@ -2,7 +2,6 @@ package catalog
 
 import (
 	"github.com/hashicorp/nomad/drivers/docker"
-	"github.com/hashicorp/nomad/drivers/ecs"
 	"github.com/hashicorp/nomad/drivers/exec"
 	"github.com/hashicorp/nomad/drivers/java"
 	"github.com/hashicorp/nomad/drivers/qemu"
@@ -18,7 +17,4 @@ func init() {
 	Register(qemu.PluginID, qemu.PluginConfig)
 	Register(java.PluginID, java.PluginConfig)
 	RegisterDeferredConfig(docker.PluginID, docker.PluginConfig, docker.PluginLoader)
-
-	//FIXME(schmichael) Remove - for dev purposes only
-	Register(ecs.PluginID, ecs.PluginConfig)
 }
