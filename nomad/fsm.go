@@ -1169,7 +1169,7 @@ func (n *nomadFSM) applyCSIVolumeClaim(buf []byte, index uint64) interface{} {
 		n.logger.Error("AllocByID failed", "error", err)
 		return err
 	}
-	if alloc == nil {
+	if alloc == nil && req.Claim != structs.CSIVolumeClaimRelease {
 		n.logger.Error("AllocByID failed to find alloc", "alloc_id", req.AllocationID)
 		if err != nil {
 			return err
@@ -1178,7 +1178,9 @@ func (n *nomadFSM) applyCSIVolumeClaim(buf []byte, index uint64) interface{} {
 		return structs.ErrUnknownAllocationPrefix
 	}
 
-	if err := n.state.CSIVolumeClaim(index, req.RequestNamespace(), req.VolumeID, alloc, req.Claim); err != nil {
+	err = n.state.CSIVolumeClaim(index, req.RequestNamespace(),
+		req.VolumeID, alloc, req.ToClaim())
+	if err != nil {
 		n.logger.Error("CSIVolumeClaim failed", "error", err)
 		return err
 	}

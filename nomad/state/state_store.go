@@ -2018,7 +2018,7 @@ func (s *StateStore) CSIVolumesByNamespace(ws memdb.WatchSet, namespace string) 
 }
 
 // CSIVolumeClaim updates the volume's claim count and allocation list
-func (s *StateStore) CSIVolumeClaim(index uint64, namespace, id string, alloc *structs.Allocation, claim structs.CSIVolumeClaimMode) error {
+func (s *StateStore) CSIVolumeClaim(index uint64, namespace, id string, alloc *structs.Allocation, claim *structs.CSIVolumeClaim) error {
 	txn := s.db.Txn(true)
 	defer txn.Abort()
 
