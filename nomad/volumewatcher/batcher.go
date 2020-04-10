@@ -86,17 +86,16 @@ func (b *VolumeUpdateBatcher) batcher() {
 			}
 
 			// Create the batch request
-			var claimBatch []structs.CSIVolumeClaimRequest
+			req := structs.CSIVolumeClaimBatchRequest{}
 			for _, claim := range claims {
-				claimBatch = append(claimBatch, claim)
+				req.Claims = append(req.Claims, claim)
 			}
-			req := structs.CSIVolumeClaimBatchRequest(claimBatch)
 
 			// Upsert the claims in a go routine
 			go f.Set(b.raft.UpsertVolumeClaims(&req))
 
 			// Reset the claims list and timer
-			claims := make(map[string]*structs.CSIVolumeClaimRequest)
+			claims = make(map[string]structs.CSIVolumeClaimRequest)
 			timerCh = nil
 		}
 	}

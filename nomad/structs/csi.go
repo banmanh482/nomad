@@ -566,7 +566,9 @@ const (
 	CSIVolumeClaimRelease
 )
 
-type CSIVolumeClaimBatchRequest []CSIVolumeClaimRequest
+type CSIVolumeClaimBatchRequest struct {
+	Claims []CSIVolumeClaimRequest
+}
 
 type CSIVolumeClaimRequest struct {
 	VolumeID     string

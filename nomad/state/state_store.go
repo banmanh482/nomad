@@ -2038,18 +2038,17 @@ func (s *StateStore) CSIVolumeClaim(index uint64, namespace, id string, claim *s
 
 	var alloc *structs.Allocation
 	if claim.Mode != structs.CSIVolumeClaimRelease {
-		alloc, err := s.AllocByID(ws, claim.AllocationID)
+		alloc, err = s.AllocByID(ws, claim.AllocationID)
 		if err != nil {
 			s.logger.Error("AllocByID failed", "error", err)
-			return err
+			return fmt.Errorf(structs.ErrUnknownAllocationPrefix)
 		}
 		if alloc == nil {
 			s.logger.Error("AllocByID failed to find alloc", "alloc_id", claim.AllocationID)
 			if err != nil {
-				return err
+				return fmt.Errorf(structs.ErrUnknownAllocationPrefix)
 			}
 		}
-		return fmt.Errorf(structs.ErrUnknownAllocationPrefix)
 	}
 
 	volume, err := s.CSIVolumeDenormalizePlugins(ws, orig.Copy())

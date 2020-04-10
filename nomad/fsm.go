@@ -1159,20 +1159,21 @@ func (n *nomadFSM) applyCSIVolumeDeregister(buf []byte, index uint64) interface{
 }
 
 func (n *nomadFSM) applyCSIVolumeBatchClaim(buf []byte, index uint64) interface{} {
-	var reqs *structs.CSIVolumeClaimBatchRequest
-	if err := structs.Decode(buf, &reqs); err != nil {
+	var batch *structs.CSIVolumeClaimBatchRequest
+	if err := structs.Decode(buf, &batch); err != nil {
 		panic(fmt.Errorf("failed to decode request: %v", err))
 	}
 	defer metrics.MeasureSince([]string{"nomad", "fsm", "apply_csi_volume_batch_claim"}, time.Now())
 
-	for _, req := range reqs {
-		err = n.state.CSIVolumeClaim(index, req.RequestNamespace(),
+	for _, req := range batch.Claims {
+		err := n.state.CSIVolumeClaim(index, req.RequestNamespace(),
 			req.VolumeID, req.ToClaim())
 		if err != nil {
 			n.logger.Error("CSIVolumeClaim failed", "error", err)
 			return err
 		}
 	}
+	return nil
 }
 
 func (n *nomadFSM) applyCSIVolumeClaim(buf []byte, index uint64) interface{} {
@@ -1182,7 +1183,7 @@ func (n *nomadFSM) applyCSIVolumeClaim(buf []byte, index uint64) interface{} {
 	}
 	defer metrics.MeasureSince([]string{"nomad", "fsm", "apply_csi_volume_claim"}, time.Now())
 
-	err = n.state.CSIVolumeClaim(index, req.RequestNamespace(),
+	err := n.state.CSIVolumeClaim(index, req.RequestNamespace(),
 		req.VolumeID, req.ToClaim())
 	if err != nil {
 		n.logger.Error("CSIVolumeClaim failed", "error", err)

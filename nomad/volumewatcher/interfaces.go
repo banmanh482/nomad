@@ -1,6 +1,8 @@
 package volumewatcher
 
 import (
+	cstructs "github.com/hashicorp/nomad/client/structs"
+	"github.com/hashicorp/nomad/nomad/state"
 	"github.com/hashicorp/nomad/nomad/structs"
 )
 
@@ -13,15 +15,17 @@ type VolumeRaftEndpoints interface {
 }
 
 // TODO: note why we do this to avoid circular references
-// VolumeRPCServer is a minimal interface of the Server, intended as
+// ClientRPC is a minimal interface of the Server, intended as
 // an aid for testing logic surrounding server-to-server or
 // server-to-client RPC calls
-type VolumeRPCServer interface {
-	RPC(method string, args interface{}, reply interface{}) error
-
-	// TODO: maybe don't need this?
-	//	State() *state.StateStore
+type ClientRPC interface {
+	ControllerDetachVolume(args *cstructs.ClientCSIControllerDetachVolumeRequest, reply *cstructs.ClientCSIControllerDetachVolumeResponse) error
+	NodeDetachVolume(args *cstructs.ClientCSINodeDetachVolumeRequest, reply *cstructs.ClientCSINodeDetachVolumeResponse) error
 }
+
+// nodeForControllerPlugin returns the node ID for a random controller
+// to load-balance long-blocking RPCs across client nodes.
+type nodeForControllerPluginFn func(state *state.StateStore, plugin *structs.CSIPlugin) (string, error)
 
 // claimUpdater is the set of functions required to update claims on
 // behalf of a volume (used to wrap batch updates so that we can test

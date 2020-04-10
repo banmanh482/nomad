@@ -25,7 +25,7 @@ func (shim *volumeWatcherRaftShim) convertApplyErrors(applyResp interface{}, ind
 	return index, err
 }
 
-func (shim *volumeWatcherRaftShim) UpsertVolumeClaims(*structs.CSIVolumeClaimBatchRequest) (uint64, error) {
-	fsmErrIntf, index, raftErr := shim.srv.apply(structs.CSIVolumeClaimRequestType, req)
+func (shim *volumeWatcherRaftShim) UpsertVolumeClaims(req *structs.CSIVolumeClaimBatchRequest) (uint64, error) {
+	fsmErrIntf, index, raftErr := shim.apply(structs.CSIVolumeClaimRequestType, req)
 	return shim.convertApplyErrors(fsmErrIntf, index, raftErr)
 }

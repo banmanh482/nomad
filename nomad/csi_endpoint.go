@@ -364,7 +364,7 @@ func (v *CSIVolume) Claim(args *structs.CSIVolumeClaimRequest, reply *structs.CS
 	// TODO: refactor this to be a little cleaner w/ the reply return
 	if args.Claim == structs.CSIVolumeClaimRelease {
 		// Call into the deployment watcher
-		index, err := d.srv.volumeWatcher.Reap(args)
+		index, err := v.srv.volumeWatcher.Reap(args)
 		if err != nil {
 			// TODO: add better logging here
 			return err

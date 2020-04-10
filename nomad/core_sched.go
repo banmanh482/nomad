@@ -719,6 +719,9 @@ func (c *CoreScheduler) csiVolumeClaimGC(eval *structs.Evaluation) error {
 	// Volume ID smuggled in with the eval's own JobID
 	evalVolID := strings.Split(eval.JobID, ":")
 
+	// TODO: why are we getting spurious volume GC evals showing up
+	// and getting failures?
+
 	// COMPAT(1.0): 0.11.0 shipped with 3 fields. tighten this check to len == 2
 	if len(evalVolID) < 2 {
 		c.logger.Error("volume gc called without volID")
@@ -726,10 +729,8 @@ func (c *CoreScheduler) csiVolumeClaimGC(eval *structs.Evaluation) error {
 	}
 
 	volID := evalVolID[1]
-	req := &structs.CSIVolumeClaimRequest{
-		VolumeID:  volID,
-		Namespace: eval.namespace,
-	}
-	_, err := c.srv.volumeWatcher.VolumeReap(req)
+	req := &structs.CSIVolumeClaimRequest{VolumeID: volID}
+	req.Namespace = eval.Namespace
+	_, err := c.srv.volumeWatcher.Reap(req)
 	return err
 }

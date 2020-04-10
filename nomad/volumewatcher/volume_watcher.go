@@ -23,6 +23,8 @@ type volumeWatcher struct {
 	// claimUpdater holds the methods required to update claims
 	claimUpdater
 
+	nodeForControllerPlugin nodeForControllerPluginFn
+
 	// state is the state that is watched for state changes.
 	state *state.StateStore
 
@@ -35,7 +37,7 @@ type volumeWatcher struct {
 	// v is the volume being watched
 	v *structs.CSIVolume
 
-	srv VolumeRPCServer
+	rpc ClientRPC
 
 	logger log.Logger
 	ctx    context.Context
@@ -48,16 +50,17 @@ type volumeWatcher struct {
 func newVolumeWatcher(parent *Watcher, vol *structs.CSIVolume) *volumeWatcher {
 	ctx, exitFn := context.WithCancel(parent.ctx)
 	w := &volumeWatcher{
-		queryLimiter: parent.queryLimiter,
-		volumeID:     vol.ID,
-		updateCh:     make(chan struct{}, 1),
-		claimUpdater: parent,
-		v:            vol,
-		state:        parent.state,
-		srv:          parent.srv,
-		logger:       parent.logger.With("volume_id", vol.ID, "namespace", vol.Namespace),
-		ctx:          ctx,
-		exitFn:       exitFn,
+		queryLimiter:            parent.queryLimiter,
+		volumeID:                vol.ID,
+		updateCh:                make(chan struct{}, 1),
+		claimUpdater:            parent,
+		v:                       vol,
+		nodeForControllerPlugin: parent.nodeForControllerPlugin,
+		state:                   parent.state,
+		rpc:                     parent.rpc,
+		logger:                  parent.logger.With("volume_id", vol.ID, "namespace", vol.Namespace),
+		ctx:                     ctx,
+		exitFn:                  exitFn,
 	}
 
 	// Start the long lived watcher that scans for allocation updates
@@ -119,7 +122,6 @@ func (vw *volumeWatcher) volumeReapImpl(vol *structs.CSIVolume) error {
 	// TODO: assumption here is we've denormalized first, is that likely?
 	// TODO: no!
 
-	ws := memdb.NewWatchSet()
 	var result *multierror.Error
 	nodeClaims := map[string]int{} // node IDs -> count
 
@@ -218,7 +220,7 @@ func (vw *volumeWatcher) nodeDetach(vol *structs.CSIVolume, claim *structs.CSIVo
 		ReadOnly:       claim.Mode == structs.CSIVolumeClaimRead,
 	}
 
-	err := vw.srv.RPC("ClientCSI.NodeDetachVolume", nReq,
+	err := vw.rpc.NodeDetachVolume(nReq,
 		&cstructs.ClientCSINodeDetachVolumeResponse{})
 	if err != nil {
 		return err
@@ -260,7 +262,7 @@ func (vw *volumeWatcher) controllerDetach(vol *structs.CSIVolume, claim *structs
 		return fmt.Errorf("plugin lookup error: %s missing plugin", vol.PluginID)
 	}
 
-	controllerNodeID, err := nodeForControllerPlugin(vw.state, plug)
+	controllerNodeID, err := vw.nodeForControllerPlugin(vw.state, plug)
 	if err != nil || controllerNodeID == "" {
 		return err
 	}
@@ -270,7 +272,7 @@ func (vw *volumeWatcher) controllerDetach(vol *structs.CSIVolume, claim *structs
 	}
 	cReq.PluginID = plug.ID
 	cReq.ControllerNodeID = controllerNodeID
-	err = vw.srv.RPC("ClientCSI.ControllerDetachVolume", cReq,
+	err = vw.rpc.ControllerDetachVolume(cReq,
 		&cstructs.ClientCSIControllerDetachVolumeResponse{})
 	if err != nil {
 		return err
@@ -296,7 +298,7 @@ func (vw *volumeWatcher) syncClaim(vol *structs.CSIVolume, claim *structs.CSIVol
 		WriteRequest: structs.WriteRequest{
 			// Region:    vol.Region, // TODO shouldn't volumes have regions?
 			Namespace: vol.Namespace,
-			AuthToken: vw.srv.getLeaderAcl(), // TODO push this up to constructor
+			// AuthToken: vw.srv.getLeaderAcl(), // TODO this only runs on leader, not an RPC
 		},
 	}
 

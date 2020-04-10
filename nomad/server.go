@@ -1016,7 +1016,9 @@ func (s *Server) setupVolumeWatcher() error {
 
 	// Create the volume watcher
 	s.volumeWatcher = volumewatcher.NewVolumesWatcher(
-		s.logger, raftShim, s,
+		s.logger, raftShim,
+		s.staticEndpoints.ClientCSI,
+		nodeForControllerPlugin,
 		volumewatcher.LimitStateQueriesPerSecond,
 		volumewatcher.CrossVolumeUpdateBatchDuration)
 

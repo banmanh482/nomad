@@ -49,9 +49,11 @@ type Watcher struct {
 	// volumes watcher
 	raft VolumeRaftEndpoints
 
-	// srv contains the set of Server methods that can be used by
-	// the volumes watcher (mostly for RPC)
-	srv VolumeRPCServer
+	// rpc contains the set of Server methods that can be used by
+	// the volumes watcher for RPC
+	rpc ClientRPC
+
+	nodeForControllerPlugin nodeForControllerPluginFn
 
 	// state is the state that is watched for state changes.
 	state *state.StateStore
@@ -72,22 +74,29 @@ type Watcher struct {
 // NewVolumesWatcher returns a volumes watcher that is used to watch
 // volumes and trigger the scheduler as needed.
 func NewVolumesWatcher(logger log.Logger,
-	raft VolumeRaftEndpoints, srv VolumeRPCServer, stateQueriesPerSecond float64,
+	raft VolumeRaftEndpoints, rpc ClientRPC, nodeForControllerPlugin nodeForControllerPluginFn, stateQueriesPerSecond float64,
 	updateBatchDuration time.Duration) *Watcher {
 
 	return &Watcher{
-		raft:                raft,
-		srv:                 srv,
-		queryLimiter:        rate.NewLimiter(rate.Limit(stateQueriesPerSecond), 100),
-		updateBatchDuration: updateBatchDuration,
-		logger:              logger.Named("volumes_watcher"),
+		raft:                    raft,
+		rpc:                     rpc,
+		nodeForControllerPlugin: nodeForControllerPlugin,
+		queryLimiter:            rate.NewLimiter(rate.Limit(stateQueriesPerSecond), 100),
+		updateBatchDuration:     updateBatchDuration,
+		logger:                  logger.Named("volumes_watcher"),
 	}
 }
 
 // ReapVolume starts a volume watcher for a volume
-func (w *Watcher) Reap(req *structs.CSIVolumeClaimRequest) error {
-	_, err := w.getOrCreateWatcher(req.VolumeID, req.RequestNamespace())
-	return err
+func (w *Watcher) Reap(req *structs.CSIVolumeClaimRequest) (uint64, error) {
+	index := uint64(0) // TODO: figure this out or remove it
+	watcher, err := w.getOrCreateWatcher(req.VolumeID, req.RequestNamespace())
+	if err != nil {
+		fmt.Printf("* Watcher.Reap getOrCreateWatcher error [%v / %v]: %v\n", req.VolumeID, req.RequestNamespace(), err)
+		return 0, err
+	}
+	watcher.Notify(watcher.v)
+	return index, nil
 }
 
 // SetEnabled is used to control if the watcher is enabled. The
@@ -218,12 +227,6 @@ func (w *Watcher) addLocked(v *structs.CSIVolume) (*volumeWatcher, error) {
 		return nil, nil
 	}
 
-	// Get the job the volume is referencing
-	snap, err := w.state.Snapshot()
-	if err != nil {
-		return nil, err
-	}
-
 	watcher := newVolumeWatcher(w, v)
 	w.watchers[v.ID+v.Namespace] = watcher
 	return watcher, nil
@@ -255,11 +258,11 @@ func (w *Watcher) forceAdd(volID, namespace string) (*volumeWatcher, error) {
 		return nil, err
 	}
 
+	// TODO: I think we need the ws here?
 	vol, err := snap.CSIVolumeByID(nil, volID, namespace)
 	if err != nil {
 		return nil, err
 	}
-
 	if vol == nil {
 		return nil, fmt.Errorf("unknown volume %q", volID)
 	}
