@@ -1170,7 +1170,7 @@ func (n *nomadFSM) applyCSIVolumeBatchClaim(buf []byte, index uint64) interface{
 			req.VolumeID, req.ToClaim())
 		if err != nil {
 			n.logger.Error("CSIVolumeClaim failed", "error", err)
-			return err
+			return err // note: fails the remaining batch
 		}
 	}
 	return nil
