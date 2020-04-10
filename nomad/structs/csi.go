@@ -186,10 +186,10 @@ func (v *CSIMountOptions) GoString() string {
 }
 
 type CSIVolumeClaim struct {
-	AllocID string
-	NodeID  string
-	Mode    CSIVolumeClaimMode // TODO: can probably do without this?
-	State   CSIVolumeClaimState
+	AllocationID string
+	NodeID       string
+	Mode         CSIVolumeClaimMode
+	State        CSIVolumeClaimState
 }
 
 type CSIVolumeClaimState int
@@ -457,14 +457,14 @@ func (v *CSIVolume) ClaimWrite(claim *CSIVolumeClaim, alloc *Allocation) error {
 // ClaimRelease is called when the allocation has terminated and
 // already stopped using the volume
 func (v *CSIVolume) ClaimRelease(claim *CSIVolumeClaim) error {
-	delete(v.ReadAllocs, claim.AllocID)
-	delete(v.WriteAllocs, claim.AllocID)
-	delete(v.ReadClaims, claim.AllocID)
-	delete(v.WriteClaims, claim.AllocID)
+	delete(v.ReadAllocs, claim.AllocationID)
+	delete(v.WriteAllocs, claim.AllocationID)
+	delete(v.ReadClaims, claim.AllocationID)
+	delete(v.WriteClaims, claim.AllocationID)
 	if claim.State == CSIVolumeClaimStateReadyToFree {
-		delete(v.PastClaims, claim.AllocID)
+		delete(v.PastClaims, claim.AllocationID)
 	} else {
-		v.PastClaims[claim.AllocID] = claim
+		v.PastClaims[claim.AllocationID] = claim
 	}
 	return nil
 }
@@ -566,6 +566,8 @@ const (
 	CSIVolumeClaimRelease
 )
 
+type CSIVolumeClaimBatchRequest []CSIVolumeClaimRequest
+
 type CSIVolumeClaimRequest struct {
 	VolumeID     string
 	AllocationID string
@@ -577,10 +579,10 @@ type CSIVolumeClaimRequest struct {
 
 func (req *CSIVolumeClaimRequest) ToClaim() *CSIVolumeClaim {
 	return &CSIVolumeClaim{
-		AllocID: req.AllocationID,
-		NodeID:  req.NodeID,
-		Mode:    req.Claim,
-		State:   req.State,
+		AllocationID: req.AllocationID,
+		NodeID:       req.NodeID,
+		Mode:         req.Claim,
+		State:        req.State,
 	}
 }
 

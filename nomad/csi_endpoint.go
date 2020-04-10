@@ -361,13 +361,24 @@ func (v *CSIVolume) Claim(args *structs.CSIVolumeClaimRequest, reply *structs.CS
 		return structs.ErrPermissionDenied
 	}
 
+	// TODO: refactor this to be a little cleaner w/ the reply return
+	if args.Claim == structs.CSIVolumeClaimRelease {
+		// Call into the deployment watcher
+		index, err := d.srv.volumeWatcher.Reap(args)
+		if err != nil {
+			// TODO: add better logging here
+			return err
+		}
+		reply.Index = index
+		v.srv.setQueryMeta(&reply.QueryMeta)
+		return nil
+	}
+
 	// if this is a new claim, add a Volume and PublishContext from the
 	// controller (if any) to the reply
-	if args.Claim != structs.CSIVolumeClaimRelease {
-		err = v.srv.controllerPublishVolume(args, reply)
-		if err != nil {
-			return fmt.Errorf("controller publish: %v", err)
-		}
+	err = v.srv.controllerPublishVolume(args, reply)
+	if err != nil {
+		return fmt.Errorf("controller publish: %v", err)
 	}
 
 	resp, index, err := v.srv.raftApply(structs.CSIVolumeClaimRequestType, args)
@@ -384,6 +395,7 @@ func (v *CSIVolume) Claim(args *structs.CSIVolumeClaimRequest, reply *structs.CS
 	return nil
 }
 
+// TODO: shouldn't this be in job_endpoint.go?
 // allowCSIMount is called on Job register to check mount permission
 func allowCSIMount(aclObj *acl.ACL, namespace string) bool {
 	return aclObj.AllowPluginRead() &&
