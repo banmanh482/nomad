@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,6 +21,44 @@ func TestMain(m *testing.M) {
 	if !testtask.Run() {
 		os.Exit(m.Run())
 	}
+}
+
+// Temporary test for working on https://github.com/hashicorp/nomad/issues/7719
+func TestTasklet_Exec_Fast(t *testing.T) {
+	var wg sync.WaitGroup
+	for j := 0; j < 20; j++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			results := []execResult{}
+
+			exec, cancelFn := newFastScriptExec()
+			defer cancelFn() // just-in-case cleanup
+
+			tm := newTaskletMock(exec, testlog.HCLogger(t), time.Nanosecond, 3*time.Second)
+
+			handle := tm.run()
+			defer handle.cancel() // just-in-case cleanup
+
+			deadline := time.After(60 * time.Second)
+			max := 1000
+			for i := 0; i <= max; i++ {
+				select {
+				case result := <-tm.calls:
+					results = append(results, result)
+				case <-deadline:
+					t.Fatalf("[goroutine %d] timed out: finished %d", j, len(results))
+				}
+			}
+			assert.Equal(t, max+1, len(results))
+			for _, result := range results {
+				assert.NoError(t, result.err)
+			}
+			fmt.Printf("[goroutine %d] complete: finished %d\n", j, len(results))
+		}()
+	}
+	wg.Wait()
 }
 
 func TestTasklet_Exec_HappyPath(t *testing.T) {
@@ -211,6 +250,44 @@ func (b *blockingScriptExec) Exec(dur time.Duration, _ string, _ []string) ([]by
 		}
 	}
 	atomic.StoreInt32(&b.exited, 1)
+	return []byte{}, code, err
+}
+
+// fastScriptExec implements ScriptExec by running a subcommand that
+// returns quickly
+type fastScriptExec struct {
+	// pctx is canceled *only* for test cleanup. Just like real
+	// ScriptExecutors its Exec method cannot be canceled directly -- only
+	// with a timeout.
+	pctx context.Context
+
+	// set to 1 with atomics if Exec is called and has exited
+	exited int32
+}
+
+// newFastScriptExec returns a ScriptExecutor that runs but finishes
+// quickly.  It also returns a CancelFunc for test cleanup only.
+func newFastScriptExec() (*fastScriptExec, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	exec := &fastScriptExec{
+		pctx: ctx,
+	}
+	return exec, cancel
+}
+
+func (b *fastScriptExec) Exec(dur time.Duration, _ string, _ []string) ([]byte, int, error) {
+	ctx, cancel := context.WithTimeout(b.pctx, dur)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", "'/bin/echo'")
+	testtask.SetCmdEnv(cmd)
+	err := cmd.Run()
+	code := 0
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		if !exitErr.Success() {
+			code = 1
+		}
+	}
+	// atomic.StoreInt32(&b.exited, 1)
 	return []byte{}, code, err
 }
 
