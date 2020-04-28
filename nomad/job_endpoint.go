@@ -316,6 +316,7 @@ func (j *Job) Register(args *structs.JobRegisterRequest, reply *structs.JobRegis
 		JobID:          args.Job.ID,
 		JobModifyIndex: reply.JobModifyIndex,
 		Status:         structs.EvalStatusPending,
+		Trace:          args.Trace,
 		CreateTime:     now,
 		ModifyTime:     now,
 	}
@@ -1484,6 +1485,7 @@ func (j *Job) Plan(args *structs.JobPlanRequest, reply *structs.JobPlanResponse)
 		JobModifyIndex: updatedIndex,
 		Status:         structs.EvalStatusPending,
 		AnnotatePlan:   true,
+		Trace:          true,
 		// Timestamps are added for consistency but this eval is never persisted
 		CreateTime: now,
 		ModifyTime: now,

@@ -243,6 +243,9 @@ func (s *GenericScheduler) process() (bool, error) {
 
 	// Create an evaluation context
 	s.ctx = NewEvalContext(s.state, s.plan, s.logger)
+	if s.eval.Trace {
+		s.ctx.Metrics().StartTracing()
+	}
 
 	// Construct the placement stack
 	s.stack = NewGenericStack(s.batch, s.ctx)

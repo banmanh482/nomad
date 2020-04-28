@@ -318,15 +318,12 @@ func CopyMapStringSliceString(m map[string][]string) map[string][]string {
 }
 
 func CopySliceString(s []string) []string {
-	l := len(s)
-	if l == 0 {
+	if s == nil {
 		return nil
 	}
 
-	c := make([]string, l)
-	for i, v := range s {
-		c[i] = v
-	}
+	c := make([]string, len(s))
+	copy(c, s)
 	return c
 }
 
@@ -337,9 +334,7 @@ func CopySliceInt(s []int) []int {
 	}
 
 	c := make([]int, l)
-	for i, v := range s {
-		c[i] = v
-	}
+	copy(c, s)
 	return c
 }
 

@@ -409,6 +409,7 @@ func (s *HTTPServer) jobUpdate(resp http.ResponseWriter, req *http.Request,
 
 	regReq := structs.JobRegisterRequest{
 		Job:            sJob,
+		Trace:          args.Trace,
 		EnforceIndex:   args.EnforceIndex,
 		JobModifyIndex: args.JobModifyIndex,
 		PolicyOverride: args.PolicyOverride,

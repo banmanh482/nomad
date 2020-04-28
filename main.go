@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -76,6 +77,8 @@ func init() {
 }
 
 func main() {
+	runtime.SetMutexProfileFraction(1)
+
 	os.Exit(Run(os.Args[1:]))
 }
 

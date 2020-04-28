@@ -540,6 +540,8 @@ type SearchRequest struct {
 type JobRegisterRequest struct {
 	Job *Job
 
+	Trace bool
+
 	// If EnforceIndex is set then the job will only be registered if the passed
 	// JobModifyIndex matches the current Jobs index. If the index is zero, the
 	// register only occurs if the job is new.
@@ -8723,6 +8725,8 @@ type AllocMetric struct {
 	// This is to prevent creating many failed allocations for a
 	// single task group.
 	CoalescedFailures int
+
+	Trace []string `json:",omitempty"`
 }
 
 func (a *AllocMetric) Copy() *AllocMetric {
@@ -8739,6 +8743,7 @@ func (a *AllocMetric) Copy() *AllocMetric {
 	na.QuotaExhausted = helper.CopySliceString(na.QuotaExhausted)
 	na.Scores = helper.CopyMapStringFloat64(na.Scores)
 	na.ScoreMetaData = CopySliceNodeScoreMeta(na.ScoreMetaData)
+	na.Trace = helper.CopySliceString(na.Trace)
 	return na
 }
 
@@ -8760,6 +8765,14 @@ func (a *AllocMetric) FilterNode(node *Node, constraint string) {
 		}
 		a.ConstraintFiltered[constraint] += 1
 	}
+
+	if a.Trace != nil {
+		nodeID := "<unknown>"
+		if node != nil {
+			nodeID = node.ID
+		}
+		a.Trace = append(a.Trace, fmt.Sprintf("filtered node: node=%v reason=constraint constraint=%q", nodeID, constraint))
+	}
 }
 
 func (a *AllocMetric) ExhaustedNode(node *Node, dimension string) {
@@ -8776,6 +8789,14 @@ func (a *AllocMetric) ExhaustedNode(node *Node, dimension string) {
 		}
 		a.DimensionExhausted[dimension] += 1
 	}
+
+	if a.Trace != nil {
+		nodeID := "<unknown>"
+		if node != nil {
+			nodeID = node.ID
+		}
+		a.Trace = append(a.Trace, fmt.Sprintf("filtered node: node=%v reason=exhausted dimensions=%q", nodeID, dimension))
+	}
 }
 
 func (a *AllocMetric) ExhaustQuota(dimensions []string) {
@@ -8784,11 +8805,15 @@ func (a *AllocMetric) ExhaustQuota(dimensions []string) {
 	}
 
 	a.QuotaExhausted = append(a.QuotaExhausted, dimensions...)
+
+	if a.Trace != nil {
+		a.Trace = append(a.Trace, fmt.Sprintf("exhausted quota: dimensions=%q", dimensions))
+	}
 }
 
 // ScoreNode is used to gather top K scoring nodes in a heap
 func (a *AllocMetric) ScoreNode(node *Node, name string, score float64) {
-	// Create nodeScoreMeta lazily if its the first time or if its a new node
+	// Create nodeScoreMeta lazily if its the first time or if its a new nod
 	if a.nodeScoreMeta == nil || a.nodeScoreMeta.NodeID != node.ID {
 		a.nodeScoreMeta = &NodeScoreMeta{
 			NodeID: node.ID,
@@ -8811,6 +8836,10 @@ func (a *AllocMetric) ScoreNode(node *Node, name string, score float64) {
 	} else {
 		a.nodeScoreMeta.Scores[name] = score
 	}
+
+	if a.Trace != nil {
+		a.Trace = append(a.Trace, fmt.Sprintf("scoring: node=%v name=%v score=%v", node.ID, name, score))
+	}
 }
 
 // PopulateScoreMetaData populates a map of scorer to scoring metadata
@@ -8827,6 +8856,12 @@ func (a *AllocMetric) PopulateScoreMetaData() {
 	heapItems := a.topScores.GetItemsReverse()
 	for i, item := range heapItems {
 		a.ScoreMetaData[i] = item.(*NodeScoreMeta)
+	}
+}
+
+func (a *AllocMetric) StartTracing() {
+	if a.Trace == nil {
+		a.Trace = []string{}
 	}
 }
 
@@ -9100,6 +9135,8 @@ type Evaluation struct {
 	// capacity has changed since the evaluation was created. This can result in
 	// the SnapshotIndex being less than the CreateIndex.
 	SnapshotIndex uint64
+
+	Trace bool
 
 	// Raft Indexes
 	CreateIndex uint64

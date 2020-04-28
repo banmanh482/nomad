@@ -128,7 +128,7 @@ func (c *JobRunCommand) AutocompleteArgs() complete.Predictor {
 func (c *JobRunCommand) Name() string { return "job run" }
 
 func (c *JobRunCommand) Run(args []string) int {
-	var detach, verbose, output, override bool
+	var detach, verbose, trace, output, override bool
 	var checkIndexStr, consulToken, vaultToken string
 
 	flags := c.Meta.FlagSet(c.Name(), FlagSetClient)
@@ -137,6 +137,7 @@ func (c *JobRunCommand) Run(args []string) int {
 	flags.BoolVar(&verbose, "verbose", false, "")
 	flags.BoolVar(&output, "output", false, "")
 	flags.BoolVar(&override, "policy-override", false, "")
+	flags.BoolVar(&trace, "trace", false, "")
 	flags.StringVar(&checkIndexStr, "check-index", "", "")
 	flags.StringVar(&consulToken, "consul-token", "", "")
 	flags.StringVar(&vaultToken, "vault-token", "", "")
@@ -227,7 +228,9 @@ func (c *JobRunCommand) Run(args []string) int {
 	}
 
 	// Set the register options
-	opts := &api.RegisterOptions{}
+	opts := &api.RegisterOptions{
+		Trace: trace,
+	}
 	if enforce {
 		opts.EnforceIndex = true
 		opts.ModifyIndex = checkIndex

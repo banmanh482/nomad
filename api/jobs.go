@@ -84,6 +84,7 @@ func (j *Jobs) Validate(job *Job, q *WriteOptions) (*JobValidateResponse, *Write
 
 // RegisterOptions is used to pass through job registration parameters
 type RegisterOptions struct {
+	Trace          bool
 	EnforceIndex   bool
 	ModifyIndex    uint64
 	PolicyOverride bool
@@ -109,6 +110,7 @@ func (j *Jobs) RegisterOpts(job *Job, opts *RegisterOptions, q *WriteOptions) (*
 		Job: job,
 	}
 	if opts != nil {
+		req.Trace = opts.Trace
 		if opts.EnforceIndex {
 			req.EnforceIndex = true
 			req.JobModifyIndex = opts.ModifyIndex
@@ -1027,6 +1029,9 @@ type JobRevertRequest struct {
 // JobUpdateRequest is used to update a job
 type JobRegisterRequest struct {
 	Job *Job
+
+	Trace bool
+
 	// If EnforceIndex is set then the job will only be registered if the passed
 	// JobModifyIndex matches the current Jobs index. If the index is zero, the
 	// register only occurs if the job is new.
@@ -1040,6 +1045,7 @@ type JobRegisterRequest struct {
 // RegisterJobRequest is used to serialize a job registration
 type RegisterJobRequest struct {
 	Job            *Job
+	Trace          bool   `json:",omitempty"`
 	EnforceIndex   bool   `json:",omitempty"`
 	JobModifyIndex uint64 `json:",omitempty"`
 	PolicyOverride bool   `json:",omitempty"`
