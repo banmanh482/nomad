@@ -1174,6 +1174,24 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
+			"tg-service-connect-native.hcl",
+			&api.Job{
+				ID:   helper.StringToPtr("service-connect-native"),
+				Name: helper.StringToPtr("service-connect-native"),
+				Type: helper.StringToPtr("service"),
+				TaskGroups: []*api.TaskGroup{{
+					Name: helper.StringToPtr("group"),
+					Services: []*api.Service{{
+						Name: "example",
+						Connect: &api.ConsulConnect{
+							Native: true,
+						},
+					}},
+				}},
+			},
+			false,
+		},
+		{
 			"tg-service-connect-proxy.hcl",
 			&api.Job{
 				ID:   helper.StringToPtr("service-connect-proxy"),
