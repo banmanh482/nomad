@@ -18,6 +18,7 @@ func newConnect(serviceName string, nc *structs.ConsulConnect, networks structs.
 	}
 
 	if nc.Native {
+		fmt.Printf("newConnect(native: %t)\n", nc.Native)
 		return &api.AgentServiceConnect{Native: true}, nil
 	}
 

@@ -1,0 +1,19 @@
+syntax = "proto3";
+package hashicorp.nomad.client.conmon.proto;
+option go_package = "proto";
+
+service ConMon {
+    rpc Start(StartRequest) returns (StartResponse) {}
+    rpc Stop(StopRequest) returns (StopResponse) {}
+}
+
+message StartRequest {
+    // config options
+}
+
+message StartResponse {
+}
+
+message StopRequest {}
+
+message StopResponse {}
