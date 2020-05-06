@@ -531,7 +531,7 @@ type ExecTaskStreamingResponseMsg = proto.ExecTaskStreamingResponse
 // InternalCapabilitiesDriver is an experimental interface enabling a driver
 // to disable some nomad functionality (e.g. logs or metrics).
 //
-// Intended for internal drivers only while the interface is stabalized.
+// Intended for internal drivers only while the interface is stabilized.
 type InternalCapabilitiesDriver interface {
 	InternalCapabilities() InternalCapabilities
 }

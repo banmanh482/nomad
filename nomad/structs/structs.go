@@ -5879,13 +5879,7 @@ type Task struct {
 // Currently only Consul Connect Proxy tasks are known.
 // (Consul Connect Native tasks will be supported soon).
 func (t *Task) UsesConnect() bool {
-	// todo(shoenig): native tasks
-	switch {
-	case t.Kind.IsConnectProxy():
-		return true
-	default:
-		return false
-	}
+	return t.Kind.IsConnectProxy()
 }
 
 func (t *Task) Copy() *Task {

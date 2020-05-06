@@ -127,6 +127,8 @@ func (tr *TaskRunner) initHooks() {
 			}))
 		}
 
+		// native?
+
 		// envoy bootstrap must execute after sidsHook maybe sets SI token
 		tr.runnerHooks = append(tr.runnerHooks, newEnvoyBootstrapHook(
 			newEnvoyBootstrapHookConfig(alloc, tr.clientConfig.ConsulConfig, hookLogger),

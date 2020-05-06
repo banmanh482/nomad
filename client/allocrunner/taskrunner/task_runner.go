@@ -180,6 +180,10 @@ type TaskRunner struct {
 	// to be passed to the driver for task logging
 	logmonHookConfig *logmonHookConfig
 
+	// conmonHookConfig is used to configure the ConMon sidecar running alongside
+	// connect native applications hiding in a network namespace.
+	conmonHookConfig *conmonHookConfig
+
 	// resourceUsage is written via UpdateStats and read via
 	// LatestResourceUsage. May be nil at all times.
 	resourceUsage     *cstructs.TaskResourceUsage

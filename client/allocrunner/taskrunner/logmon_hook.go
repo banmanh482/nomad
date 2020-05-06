@@ -17,8 +17,8 @@ import (
 	bstructs "github.com/hashicorp/nomad/plugins/base/structs"
 	"github.com/hashicorp/nomad/plugins/drivers"
 	pstructs "github.com/hashicorp/nomad/plugins/shared/structs"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -111,7 +111,7 @@ func (h *logmonHook) Prestart(ctx context.Context,
 	attempts := 0
 	for {
 		err := h.prestartOneLoop(ctx, req)
-		if err == bstructs.ErrPluginShutdown || grpc.Code(err) == codes.Unavailable {
+		if err == bstructs.ErrPluginShutdown || status.Code(err) == codes.Unavailable {
 			h.logger.Warn("logmon shutdown while making request", "error", err)
 
 			if attempts > 3 {
