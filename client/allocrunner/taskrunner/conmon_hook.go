@@ -41,6 +41,7 @@ type conmonHookConfig struct {
 }
 
 func newConMonHook(tr *TaskRunner, logger hclog.Logger) *conmonHook {
+	fmt.Println("newConMonHook")
 	return &conmonHook{
 		runner: tr,
 		config: tr.conmonHookConfig,
@@ -58,6 +59,7 @@ func (h *conmonHook) Name() string {
 }
 
 func (h *conmonHook) launchConMon(reattachConfig *plugin.ReattachConfig) error {
+	fmt.Println("launchConMon")
 	cm, c, err := conmon.LaunchConMon(h.logger, reattachConfig)
 	if err != nil {
 		return err
@@ -75,6 +77,8 @@ func (h *conmonHook) Prestart(
 	ctx context.Context,
 	req *interfaces.TaskPrestartRequest,
 	resp *interfaces.TaskPrestartResponse) error {
+
+	fmt.Println("conmonHook.Prestart")
 
 	for attempt := 1; ; attempt++ {
 		if err := h.prestartAttempt(ctx, req); pluginUnavailable(err) {
@@ -141,7 +145,7 @@ func (h *conmonHook) Stop(
 	req *interfaces.TaskStopRequest,
 	_ *interfaces.TaskStopResponse) error {
 
-	fmt.Println("SH comnmonHook.Stop()")
+	fmt.Println("conmonHook.Stop()")
 
 	// It is possible Stop was called without calling Prestart on agent restarts.
 	// Attempt to reattach to an existing conmon.

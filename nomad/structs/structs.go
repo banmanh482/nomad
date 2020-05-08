@@ -5674,7 +5674,7 @@ func (tg *TaskGroup) LookupTask(name string) *Task {
 func (tg *TaskGroup) UsesConnect() bool {
 	for _, service := range tg.Services {
 		if service.Connect != nil {
-			if service.Connect.Native || service.Connect.SidecarService != nil {
+			if service.Connect.IsNative() || service.Connect.HasSidecar() {
 				return true
 			}
 		}

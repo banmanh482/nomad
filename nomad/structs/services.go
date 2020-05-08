@@ -620,14 +620,22 @@ OUTER:
 
 // ConsulConnect represents a Consul Connect jobspec stanza.
 type ConsulConnect struct {
-	// Native is true if a service implements Connect directly and does not
-	// need a sidecar.
-	Native bool
+	// Native is empty if the service represents a legacy application that
+	// requires an Envoy (or otherwise configured via SidecarTask) sidecar
+	// that is managed via xDS by Consul.
+	//
+	// If non-empty, Native indicates the Connect-Native Task associated with
+	// the service definition in which this Connect stanza resides. If the Task
+	// will be in a network namespace (as is the case for bridge networking),
+	// then a smaller sidecar managed by Nomad will be launched as a task runner
+	// hook, for managing a proxy between the native application and Consul
+	// which is very likely to be bound to a host network local interface.
+	Native string
 
 	// SidecarService is non-nil if a service requires a sidecar.
 	SidecarService *ConsulSidecarService
 
-	// SidecarTask is non-nil if sidecar overrides are set
+	// SidecarTask is non-nil if sidecar overrides are set.
 	SidecarTask *SidecarTask
 }
 
@@ -662,17 +670,21 @@ func (c *ConsulConnect) HasSidecar() bool {
 	return c != nil && c.SidecarService != nil
 }
 
+func (c *ConsulConnect) IsNative() bool {
+	return c != nil && c.Native != ""
+}
+
 // Validate that the Connect stanza has exactly one of Native or sidecar.
 func (c *ConsulConnect) Validate() error {
 	if c == nil {
 		return nil
 	}
 
-	if c.Native && c.SidecarService != nil {
+	if c.IsNative() && c.HasSidecar() {
 		return fmt.Errorf("Consul Connect must be native or use a sidecar service; not both")
 	}
 
-	if !c.Native && c.SidecarService == nil {
+	if !c.IsNative() && !c.HasSidecar() {
 		return fmt.Errorf("Consul Connect must be native or use a sidecar service")
 	}
 
