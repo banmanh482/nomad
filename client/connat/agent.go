@@ -1,4 +1,4 @@
-package conmon
+package connat
 
 import (
 	"errors"
@@ -35,7 +35,7 @@ func (a *Agent) Open() error {
 	fmt.Println("SH Agent.Open()")
 
 	if a.httpServer != nil {
-		return errors.New("conmon agent already started")
+		return errors.New("connat agent already started")
 	}
 
 	go func(address string) {

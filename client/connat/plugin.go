@@ -1,4 +1,4 @@
-package conmon
+package connat
 
 import (
 	"context"
@@ -7,16 +7,16 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad/client/conmon/proto"
+	"github.com/hashicorp/nomad/client/connat/proto"
 	"github.com/hashicorp/nomad/plugins/base"
 	"google.golang.org/grpc"
 )
 
 const (
-	PluginName = "conmon"
+	PluginName = "connat"
 )
 
-func LaunchConMon(root hclog.Logger, reattachConfig *plugin.ReattachConfig) (ConMon, *plugin.Client, error) {
+func LaunchConNat(root hclog.Logger, reattachConfig *plugin.ReattachConfig) (ConNat, *plugin.Client, error) {
 	logger := root.Named(PluginName)
 	bin, err := os.Executable()
 	if err != nil {
@@ -40,7 +40,7 @@ func LaunchConMon(root hclog.Logger, reattachConfig *plugin.ReattachConfig) (Con
 	return newClient(pluginConf)
 }
 
-func newClient(c *plugin.ClientConfig) (ConMon, *plugin.Client, error) {
+func newClient(c *plugin.ClientConfig) (ConNat, *plugin.Client, error) {
 	// create gRPC client
 	client := plugin.NewClient(c)
 	rpcClient, err := client.Client()
@@ -53,20 +53,20 @@ func newClient(c *plugin.ClientConfig) (ConMon, *plugin.Client, error) {
 		return nil, nil, err
 	}
 
-	return raw.(ConMon), client, nil
+	return raw.(ConNat), client, nil
 }
 
 type Plugin struct {
 	plugin.NetRPCUnsupportedPlugin
-	cm ConMon
+	cm ConNat
 }
 
-func NewPlugin(cm ConMon) plugin.Plugin {
+func NewPlugin(cm ConNat) plugin.Plugin {
 	return &Plugin{cm: cm}
 }
 
 func (p *Plugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	proto.RegisterConMonServer(s, &conmonServer{
+	proto.RegisterConNatServer(s, &connatServer{
 		cm:     p.cm,
 		broker: broker,
 	})
@@ -74,8 +74,8 @@ func (p *Plugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
 }
 
 func (p *Plugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, cc *grpc.ClientConn) (interface{}, error) {
-	return &conmonClient{
+	return &connatClient{
 		doneCtx: ctx,
-		client:  proto.NewConMonClient(cc),
+		client:  proto.NewConNatClient(cc),
 	}, nil
 }

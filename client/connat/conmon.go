@@ -1,4 +1,4 @@
-package conmon
+package connat
 
 import (
 	"github.com/hashicorp/go-hclog"
@@ -8,12 +8,12 @@ type Config struct {
 	// options
 }
 
-type ConMon interface {
+type ConNat interface {
 	Start(*Config) error
 	Stop() error
 }
 
-func New(logger hclog.Logger) ConMon {
+func New(logger hclog.Logger) ConNat {
 	return &conMon{
 		logger: logger,
 	}

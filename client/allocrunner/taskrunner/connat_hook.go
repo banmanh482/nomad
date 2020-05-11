@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad/client/allocrunner/interfaces"
-	"github.com/hashicorp/nomad/client/conmon"
+	"github.com/hashicorp/nomad/client/connat"
 	"github.com/hashicorp/nomad/nomad/structs"
 	bstructs "github.com/hashicorp/nomad/plugins/base/structs"
 	pstructs "github.com/hashicorp/nomad/plugins/shared/structs"
@@ -18,49 +18,49 @@ import (
 )
 
 const (
-	// conmonReattachKey is the HookData key where the conmon reattach config
+	// connatReattachKey is the HookData key where the connat reattach config
 	// is stored.
-	conmonReattachKey = "reattach_conmon_config"
+	connatReattachKey = "reattach_connat_config"
 )
 
-// conmonHook launches conmon is a proxy for Connect Native applications
-// running inside a network namespace
-type conmonHook struct {
-	config *conmonHookConfig
+// connatHook launches connat which is a go-plugin proxy for Connect Native
+// applications running inside a network namespace.
+type connatHook struct {
+	config *connatHookConfig
 	logger hclog.Logger
 
 	runner *TaskRunner // not needed ?
 
 	// handle to the actual agent
-	cm             conmon.ConMon
+	cm             connat.ConNat
 	cmPluginClient *plugin.Client
 }
 
-type conmonHookConfig struct {
+type connatHookConfig struct {
 	// options
 }
 
-func newConMonHook(tr *TaskRunner, logger hclog.Logger) *conmonHook {
-	fmt.Println("newConMonHook")
-	return &conmonHook{
+func newConNatHook(tr *TaskRunner, logger hclog.Logger) *connatHook {
+	fmt.Println("newConNatHook")
+	return &connatHook{
 		runner: tr,
-		config: tr.conmonHookConfig,
+		config: tr.connatHookConfig,
 	}
 }
 
-func newConMonHookConfig(taskName string) *conmonHookConfig {
-	return &conmonHookConfig{
+func newConNatHookConfig(taskName string) *connatHookConfig {
+	return &connatHookConfig{
 		// options
 	}
 }
 
-func (h *conmonHook) Name() string {
-	return "conmon"
+func (h *connatHook) Name() string {
+	return "connat"
 }
 
-func (h *conmonHook) launchConMon(reattachConfig *plugin.ReattachConfig) error {
-	fmt.Println("launchConMon")
-	cm, c, err := conmon.LaunchConMon(h.logger, reattachConfig)
+func (h *connatHook) launchConNat(reattachConfig *plugin.ReattachConfig) error {
+	fmt.Println("launchConNat")
+	cm, c, err := connat.LaunchConNat(h.logger, reattachConfig)
 	if err != nil {
 		return err
 	}
@@ -73,18 +73,18 @@ func pluginUnavailable(err error) bool {
 	return err == bstructs.ErrPluginShutdown || status.Code(err) == codes.Unavailable
 }
 
-func (h *conmonHook) Prestart(
+func (h *connatHook) Prestart(
 	ctx context.Context,
 	req *interfaces.TaskPrestartRequest,
 	resp *interfaces.TaskPrestartResponse) error {
 
-	fmt.Println("conmonHook.Prestart")
+	fmt.Println("connatHook.Prestart")
 
 	for attempt := 1; ; attempt++ {
 		if err := h.prestartAttempt(ctx, req); pluginUnavailable(err) {
-			h.logger.Warn("conmon unavailable while making request", "error", err)
+			h.logger.Warn("connat unavailable while making request", "error", err)
 			if attempt >= 3 {
-				h.logger.Warn("conmon unavailable while making request; giving up", "attempts", attempt, "error", err)
+				h.logger.Warn("connat unavailable while making request; giving up", "attempts", attempt, "error", err)
 				return err
 			}
 			h.cmPluginClient.Kill()
@@ -104,8 +104,8 @@ func (h *conmonHook) Prestart(
 	}
 }
 
-func (h *conmonHook) prestartAttempt(ctx context.Context, req *interfaces.TaskPrestartRequest) error {
-	// attach to a running conmon if state indicates one
+func (h *connatHook) prestartAttempt(ctx context.Context, req *interfaces.TaskPrestartRequest) error {
+	// attach to a running connat if state indicates one
 	if h.cmPluginClient == nil {
 		reattachConfig, err := reattachConfigFromHookData(req.PreviousState)
 		if err != nil {
@@ -113,45 +113,45 @@ func (h *conmonHook) prestartAttempt(ctx context.Context, req *interfaces.TaskPr
 			return err
 		}
 		if reattachConfig != nil {
-			if err := h.launchConMon(reattachConfig); err != nil {
+			if err := h.launchConNat(reattachConfig); err != nil {
 				h.logger.Warn("failed to reattach to logmon process", "error", err)
-				// if we failed to launch conmon, try again below
+				// if we failed to launch connat, try again below
 			}
 		}
 	}
 
 	// create a new client in initial start, failed reattachment, or if exit detected
 	if h.cmPluginClient == nil || h.cmPluginClient.Exited() {
-		if err := h.launchConMon(nil); err != nil {
-			// Retry errors launching conmon as conmon may have crashed on start
+		if err := h.launchConNat(nil); err != nil {
+			// Retry errors launching connat as connat may have crashed on start
 			// and subsequent attempts will start a new one.
-			h.logger.Error("failed to launch conmon co-process", "error", err)
+			h.logger.Error("failed to launch connat co-process", "error", err)
 			return structs.NewRecoverableError(err, true)
 		}
 	}
 
-	if err := h.cm.Start(&conmon.Config{
+	if err := h.cm.Start(&connat.Config{
 		// config
 	}); err != nil {
-		h.logger.Error("failed to start conmon", "error", err)
+		h.logger.Error("failed to start connat", "error", err)
 		return err
 	}
 
 	return nil
 }
 
-func (h *conmonHook) Stop(
+func (h *connatHook) Stop(
 	_ context.Context,
 	req *interfaces.TaskStopRequest,
 	_ *interfaces.TaskStopResponse) error {
 
-	fmt.Println("conmonHook.Stop()")
+	fmt.Println("connatHook.Stop()")
 
 	// It is possible Stop was called without calling Prestart on agent restarts.
-	// Attempt to reattach to an existing conmon.
+	// Attempt to reattach to an existing connat.
 	if h.cm == nil || h.cmPluginClient == nil {
 		if err := h.reattachBeforeStop(req); err != nil {
-			h.logger.Trace("error reattaching to conmon when stopping", "error", err)
+			h.logger.Trace("error reattaching to connat when stopping", "error", err)
 		}
 	}
 
@@ -166,7 +166,7 @@ func (h *conmonHook) Stop(
 	return nil
 }
 
-func (h *conmonHook) reattachBeforeStop(req *interfaces.TaskStopRequest) error {
+func (h *connatHook) reattachBeforeStop(req *interfaces.TaskStopRequest) error {
 	reattachConfig, err := reattachConfigFromHookData(req.ExistingState)
 	if err != nil {
 		return err
@@ -177,5 +177,5 @@ func (h *conmonHook) reattachBeforeStop(req *interfaces.TaskStopRequest) error {
 		return nil
 	}
 
-	return h.launchConMon(reattachConfig)
+	return h.launchConNat(reattachConfig)
 }
