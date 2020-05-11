@@ -127,13 +127,15 @@ func (tr *TaskRunner) initHooks() {
 			}))
 		}
 
-		// todo: uhhhhh how to go from task group service and associate the named
-		//  task for a connect native service down here?
-
-		// envoy bootstrap must execute after sidsHook maybe sets SI token
-		tr.runnerHooks = append(tr.runnerHooks, newEnvoyBootstrapHook(
-			newEnvoyBootstrapHookConfig(alloc, tr.clientConfig.ConsulConfig, hookLogger),
-		))
+		if task.Kind.IsConnectProxy() {
+			tr.runnerHooks = append(tr.runnerHooks, newEnvoyBootstrapHook(
+				newEnvoyBootstrapHookConfig(alloc, tr.clientConfig.ConsulConfig, hookLogger),
+			))
+		} else if task.Kind.IsConnectNative() {
+			tr.runnerHooks = append(tr.runnerHooks, newConNatHook(
+				newConNatHookConfig(hookLogger),
+			))
+		}
 	}
 
 	// If there are any script checks, add the hook

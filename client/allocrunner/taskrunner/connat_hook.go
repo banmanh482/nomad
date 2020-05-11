@@ -23,34 +23,36 @@ const (
 	connatReattachKey = "reattach_connat_config"
 )
 
+type connatHookConfig struct {
+	logger   hclog.Logger
+	taskName string
+}
+
+func newConNatHookConfig(taskName string, logger hclog.Logger) *connatHookConfig {
+	return &connatHookConfig{
+		logger:   logger,
+		taskName: taskName,
+	}
+}
+
 // connatHook launches connat which is a go-plugin proxy for Connect Native
 // applications running inside a network namespace.
 type connatHook struct {
-	config *connatHookConfig
-	logger hclog.Logger
-
-	runner *TaskRunner // not needed ?
+	logger   hclog.Logger
+	taskName string
 
 	// handle to the actual agent
 	cm             connat.ConNat
 	cmPluginClient *plugin.Client
 }
 
-type connatHookConfig struct {
-	// options
-}
-
-func newConNatHook(tr *TaskRunner, logger hclog.Logger) *connatHook {
-	fmt.Println("newConNatHook")
+func newConNatHook(c connatHookConfig) *connatHook {
+	fmt.Println("newConNatHook, task:", c.taskName)
 	return &connatHook{
-		runner: tr,
-		config: tr.connatHookConfig,
-	}
-}
+		logger:   c.logger,
+		taskName: c.taskName,
 
-func newConNatHookConfig(taskName string) *connatHookConfig {
-	return &connatHookConfig{
-		// options
+		// todo: actual cm stuff
 	}
 }
 

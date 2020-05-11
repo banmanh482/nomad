@@ -5874,12 +5874,10 @@ type Task struct {
 
 // UsesConnect is for conveniently detecting if the Task is able to make use
 // of Consul Connect features. This will be indicated in the TaskKind of the
-// Task, which exports known types of Tasks.
-//
-// Currently only Consul Connect Proxy tasks are known.
-// (Consul Connect Native tasks will be supported soon).
+// Task, which exports known types of Tasks. UsesConnect will be true if the
+// task is a connect proxy, or if the task is connect native.
 func (t *Task) UsesConnect() bool {
-	return t.Kind.IsConnectProxy()
+	return t.Kind.IsConnectProxy() || t.Kind.IsConnectNative()
 }
 
 func (t *Task) Copy() *Task {
@@ -6295,7 +6293,15 @@ func (t *Task) Warnings() error {
 // For example, a task may have the TaskKind of `connect-proxy:service` where
 // 'connect-proxy' is the kind name and 'service' is the identifier that relates the
 // task to the service name of which it is a connect proxy for.
+//
+// Similarly, a task may have the TaskKind of `connect-native:service` where
+// connect-native is used to label a normal operator defined task if it is
+// named as a Connect Native task in one of the Task Group's Services.
 type TaskKind string
+
+func NewTaskKind(name, identifier string) TaskKind {
+	return TaskKind(fmt.Sprintf("%s:%s", name, identifier))
+}
 
 // Name returns the kind name portion of the TaskKind
 func (k TaskKind) Name() string {
@@ -6316,9 +6322,19 @@ func (k TaskKind) IsConnectProxy() bool {
 	return strings.HasPrefix(string(k), ConnectProxyPrefix+":") && len(k) > len(ConnectProxyPrefix)+1
 }
 
-// ConnectProxyPrefix is the prefix used for fields referencing a Consul Connect
-// Proxy
-const ConnectProxyPrefix = "connect-proxy"
+func (k TaskKind) IsConnectNative() bool {
+	return strings.HasPrefix(string(k), ConnectNativePrefix+":") && len(k) > len(ConnectNativePrefix)+1
+}
+
+const (
+	// ConnectProxyPrefix is the prefix used for fields referencing a Consul Connect
+	// Proxy
+	ConnectProxyPrefix = "connect-proxy"
+
+	// ConnectNativePrefix is the prefix used for fields referencing a Connect
+	// Native Task
+	ConnectNativePrefix = "connect-native"
+)
 
 // ValidateConnectProxyService checks that the service that is being
 // proxied by this task exists in the task group and contains

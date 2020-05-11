@@ -97,10 +97,18 @@ func isSidecarForService(t *structs.Task, svc string) bool {
 	return t.Kind == structs.TaskKind(fmt.Sprintf("%s:%s", structs.ConnectProxyPrefix, svc))
 }
 
-// probably need to hack this up to look for checks on the service, and if they
-// qualify, configure a port for envoy to use to expose their paths.
+func getNamedTaskForNativeService(tg *structs.TaskGroup, taskName string) *structs.Task {
+	for _, t := range tg.Tasks {
+		if t.Name == taskName {
+			return t
+		}
+	}
+	return nil
+}
+
 func groupConnectHook(job *structs.Job, g *structs.TaskGroup) error {
 	for _, service := range g.Services {
+
 		if service.Connect.HasSidecar() {
 			// Check to see if the sidecar task already exists
 			task := getSidecarTaskForService(g, service.Name)
@@ -145,7 +153,14 @@ func groupConnectHook(job *structs.Job, g *structs.TaskGroup) error {
 
 			// create a port for the sidecar task's proxy port
 			makePort(fmt.Sprintf("%s-%s", structs.ConnectProxyPrefix, service.Name))
-			// todo(shoenig) magic port for 'expose.checks'
+		} else if nativeTaskName := service.Connect.Native; nativeTaskName != "" {
+			// tweak the TaskKind of the task named by this connect native service
+			// so we can reference it in task runner hooks down the line
+			if t := getNamedTaskForNativeService(g, service.Name); t != nil {
+				t.Kind = structs.NewTaskKind(structs.ConnectNativePrefix, service.Name)
+			} else {
+				return fmt.Errorf("native task %s named by %s->%s does not exist", nativeTaskName, g.Name, service.Name)
+			}
 		}
 	}
 
@@ -156,7 +171,7 @@ func newConnectTask(serviceName string) *structs.Task {
 	task := &structs.Task{
 		// Name is used in container name so must start with '[A-Za-z0-9]'
 		Name:          fmt.Sprintf("%s-%s", structs.ConnectProxyPrefix, serviceName),
-		Kind:          structs.TaskKind(fmt.Sprintf("%s:%s", structs.ConnectProxyPrefix, serviceName)),
+		Kind:          structs.NewTaskKind(structs.ConnectProxyPrefix, serviceName),
 		Driver:        "docker",
 		Config:        connectDriverConfig,
 		ShutdownDelay: 5 * time.Second,
