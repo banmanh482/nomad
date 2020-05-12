@@ -18,14 +18,14 @@ import (
 	"github.com/hashicorp/nomad/nomad/structs/config"
 )
 
-// consulSockHook creates Unix sockets to allow communication from inside a
-// netns to Consul.
+// grpcConsulSocketHook creates a Unix socket to allow communication from inside a
+// net namespace to Consul.
 //
 // Noop for allocations without a group Connect stanza.
-type consulSockHook struct {
+type grpcConsulSocketHook struct {
 	alloc *structs.Allocation
 
-	proxy *sockProxy
+	proxy *grpcProxy
 
 	// mu synchronizes group & cancel as they may be mutated and accessed
 	// concurrently via Prerun, Update, Postrun.
@@ -34,22 +34,22 @@ type consulSockHook struct {
 	logger hclog.Logger
 }
 
-func newConsulSockHook(logger hclog.Logger, alloc *structs.Allocation, allocDir *allocdir.AllocDir, config *config.ConsulConfig) *consulSockHook {
-	h := &consulSockHook{
+func newConsulSockHook(logger hclog.Logger, alloc *structs.Allocation, allocDir *allocdir.AllocDir, config *config.ConsulConfig) *grpcConsulSocketHook {
+	h := &grpcConsulSocketHook{
 		alloc: alloc,
-		proxy: newSockProxy(logger, allocDir, config),
+		proxy: newGRPCProxy(logger, allocDir, config),
 	}
 	h.logger = logger.Named(h.Name())
 	return h
 }
 
-func (*consulSockHook) Name() string {
+func (*grpcConsulSocketHook) Name() string {
 	return "consul_socket"
 }
 
 // shouldRun returns true if the Unix socket should be created and proxied.
 // Requires the mutex to be held.
-func (h *consulSockHook) shouldRun() bool {
+func (h *grpcConsulSocketHook) shouldRun() bool {
 	tg := h.alloc.Job.LookupTaskGroup(h.alloc.TaskGroup)
 	for _, s := range tg.Services {
 		if s.Connect != nil {
@@ -60,7 +60,7 @@ func (h *consulSockHook) shouldRun() bool {
 	return false
 }
 
-func (h *consulSockHook) Prerun() error {
+func (h *grpcConsulSocketHook) Prerun() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -73,7 +73,7 @@ func (h *consulSockHook) Prerun() error {
 
 // Update creates a gRPC socket file and proxy if there are any Connect
 // services.
-func (h *consulSockHook) Update(req *interfaces.RunnerUpdateRequest) error {
+func (h *grpcConsulSocketHook) Update(req *interfaces.RunnerUpdateRequest) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -86,7 +86,7 @@ func (h *consulSockHook) Update(req *interfaces.RunnerUpdateRequest) error {
 	return h.proxy.run(h.alloc)
 }
 
-func (h *consulSockHook) Postrun() error {
+func (h *grpcConsulSocketHook) Postrun() error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -98,7 +98,7 @@ func (h *consulSockHook) Postrun() error {
 	return nil
 }
 
-type sockProxy struct {
+type grpcProxy struct {
 	allocDir *allocdir.AllocDir
 	config   *config.ConsulConfig
 
@@ -110,9 +110,9 @@ type sockProxy struct {
 	logger hclog.Logger
 }
 
-func newSockProxy(logger hclog.Logger, allocDir *allocdir.AllocDir, config *config.ConsulConfig) *sockProxy {
+func newGRPCProxy(logger hclog.Logger, allocDir *allocdir.AllocDir, config *config.ConsulConfig) *grpcProxy {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &sockProxy{
+	return &grpcProxy{
 		allocDir: allocDir,
 		config:   config,
 		ctx:      ctx,
@@ -126,7 +126,7 @@ func newSockProxy(logger hclog.Logger, allocDir *allocdir.AllocDir, config *conf
 // hasn't been told to stop.
 //
 // NOT safe for concurrent use.
-func (s *sockProxy) run(alloc *structs.Allocation) error {
+func (s *grpcProxy) run(alloc *structs.Allocation) error {
 	// Only run once.
 	if s.runOnce {
 		return nil
@@ -195,7 +195,7 @@ func (s *sockProxy) run(alloc *structs.Allocation) error {
 
 // stop the proxy and blocks until the proxy has stopped. Returns an error if
 // the proxy does not exit in a timely fashion.
-func (s *sockProxy) stop() error {
+func (s *grpcProxy) stop() error {
 	s.cancel()
 
 	// If proxy was never run, don't wait for anything to shutdown.
