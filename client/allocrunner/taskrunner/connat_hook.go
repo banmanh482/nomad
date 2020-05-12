@@ -51,8 +51,6 @@ func newConNatHook(c *connatHookConfig) *connatHook {
 	return &connatHook{
 		logger:   c.logger,
 		taskName: c.taskName,
-
-		// todo: actual cm stuff
 	}
 }
 
@@ -64,8 +62,10 @@ func (h *connatHook) launchConNat(reattachConfig *plugin.ReattachConfig) error {
 	fmt.Println("launchConNat")
 	cm, c, err := connat.LaunchConNat(h.logger, reattachConfig)
 	if err != nil {
+		fmt.Println(" -> launch failed:", err)
 		return err
 	}
+	fmt.Println(" -> launch ok, have cm and client")
 	h.cm = cm
 	h.cmPluginClient = c
 	return nil
@@ -132,8 +132,10 @@ func (h *connatHook) prestartAttempt(ctx context.Context, req *interfaces.TaskPr
 		}
 	}
 
+	// YOU ARE HERE
 	if err := h.cm.Start(&connat.Config{
-		// config
+		SocketPath: "", // todo similar to envoy bootstrap hook
+		BindTo:     "", // todo draw me a picture
 	}); err != nil {
 		h.logger.Error("failed to start connat", "error", err)
 		return err

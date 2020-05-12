@@ -3,6 +3,7 @@ package connat
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -20,8 +21,12 @@ import (
 const defaultTimeoutHTTP = 10 * time.Second
 
 type Config struct {
-	socketPath string
-	bindTo     string
+	SocketPath string
+	BindTo     string
+}
+
+func (c *Config) String() string {
+	return fmt.Sprintf("path: %s, bind: %s", c.SocketPath, c.BindTo)
 }
 
 type ConNat interface {

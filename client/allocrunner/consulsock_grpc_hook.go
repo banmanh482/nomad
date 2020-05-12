@@ -18,33 +18,34 @@ import (
 	"github.com/hashicorp/nomad/nomad/structs/config"
 )
 
+const (
+	grpcConsulSocketHookName = "consul_socket"
+)
+
 // grpcConsulSocketHook creates a Unix socket to allow communication from inside a
 // net namespace to Consul.
 //
 // Noop for allocations without a group Connect stanza.
 type grpcConsulSocketHook struct {
-	alloc *structs.Allocation
-
-	proxy *grpcProxy
+	logger hclog.Logger
+	alloc  *structs.Allocation
+	proxy  *grpcProxy
 
 	// mu synchronizes group & cancel as they may be mutated and accessed
 	// concurrently via Prerun, Update, Postrun.
 	mu sync.Mutex
-
-	logger hclog.Logger
 }
 
-func newConsulSockHook(logger hclog.Logger, alloc *structs.Allocation, allocDir *allocdir.AllocDir, config *config.ConsulConfig) *grpcConsulSocketHook {
-	h := &grpcConsulSocketHook{
-		alloc: alloc,
-		proxy: newGRPCProxy(logger, allocDir, config),
+func newGRPCConsulSocketHook(logger hclog.Logger, alloc *structs.Allocation, allocDir *allocdir.AllocDir, config *config.ConsulConfig) *grpcConsulSocketHook {
+	return &grpcConsulSocketHook{
+		alloc:  alloc,
+		proxy:  newGRPCProxy(logger, allocDir, config),
+		logger: logger.Named(grpcConsulSocketHookName),
 	}
-	h.logger = logger.Named(h.Name())
-	return h
 }
 
 func (*grpcConsulSocketHook) Name() string {
-	return "consul_socket"
+	return grpcConsulSocketHookName
 }
 
 // shouldRun returns true if the Unix socket should be created and proxied.
@@ -52,7 +53,7 @@ func (*grpcConsulSocketHook) Name() string {
 func (h *grpcConsulSocketHook) shouldRun() bool {
 	tg := h.alloc.Job.LookupTaskGroup(h.alloc.TaskGroup)
 	for _, s := range tg.Services {
-		if s.Connect != nil {
+		if s.Connect.HasSidecar() {
 			return true
 		}
 	}
