@@ -98,11 +98,15 @@ func isSidecarForService(t *structs.Task, svc string) bool {
 }
 
 func getNamedTaskForNativeService(tg *structs.TaskGroup, taskName string) *structs.Task {
+	fmt.Printf("SH scanning group %s for task %s\n", tg.Name, taskName)
 	for _, t := range tg.Tasks {
+		fmt.Printf("  compare t.Name %s to %s\n", t.Name, taskName)
 		if t.Name == taskName {
+			fmt.Printf("    found!\n")
 			return t
 		}
 	}
+	fmt.Printf("SH -- not found\n")
 	return nil
 }
 
@@ -156,7 +160,7 @@ func groupConnectHook(job *structs.Job, g *structs.TaskGroup) error {
 		} else if nativeTaskName := service.Connect.Native; nativeTaskName != "" {
 			// tweak the TaskKind of the task named by this connect native service
 			// so we can reference it in task runner hooks down the line
-			if t := getNamedTaskForNativeService(g, service.Name); t != nil {
+			if t := getNamedTaskForNativeService(g, nativeTaskName); t != nil {
 				t.Kind = structs.NewTaskKind(structs.ConnectNativePrefix, service.Name)
 			} else {
 				return fmt.Errorf("native task %s named by %s->%s does not exist", nativeTaskName, g.Name, service.Name)

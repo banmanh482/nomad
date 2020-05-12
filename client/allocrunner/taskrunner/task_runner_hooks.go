@@ -133,7 +133,7 @@ func (tr *TaskRunner) initHooks() {
 			))
 		} else if task.Kind.IsConnectNative() {
 			tr.runnerHooks = append(tr.runnerHooks, newConNatHook(
-				newConNatHookConfig(hookLogger),
+				newConNatHookConfig(task.Name, tr.logger),
 			))
 		}
 	}

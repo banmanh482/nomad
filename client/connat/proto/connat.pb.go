@@ -6,11 +6,12 @@ package proto
 import (
 	context "context"
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -201,8 +202,10 @@ func NewConNatClient(cc grpc.ClientConnInterface) ConNatClient {
 
 func (c *conNatClient) Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error) {
 	out := new(StartResponse)
+	fmt.Printf("conNatClient Start\n")
 	err := c.cc.Invoke(ctx, "/hashicorp.nomad.client.connat.proto.ConNat/Start", in, out, opts...)
 	if err != nil {
+		fmt.Printf("  -> error: %v\n", err)
 		return nil, err
 	}
 	return out, nil

@@ -46,7 +46,7 @@ type connatHook struct {
 	cmPluginClient *plugin.Client
 }
 
-func newConNatHook(c connatHookConfig) *connatHook {
+func newConNatHook(c *connatHookConfig) *connatHook {
 	fmt.Println("newConNatHook, task:", c.taskName)
 	return &connatHook{
 		logger:   c.logger,
