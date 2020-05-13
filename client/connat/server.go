@@ -2,8 +2,10 @@ package connat
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/go-plugin"
+	"github.com/hashicorp/nomad/client/allocdir"
 	"github.com/hashicorp/nomad/client/connat/proto"
 )
 
@@ -13,11 +15,15 @@ type connatServer struct {
 }
 
 func (s *connatServer) Start(ctx context.Context, req *proto.StartRequest) (*proto.StartResponse, error) {
+	fmt.Println("connatServer.Start")
 	if err := s.cm.Start(&Config{
-		// options
+		SocketPath: "unix://" + allocdir.AllocHTTPSocket, // like envoy hook
+		BindTo:     "127.0.0.1:8500",                     // todo plumb
 	}); err != nil {
+		fmt.Println("connatServer.Start failed err:", err)
 		return nil, err
 	}
+	fmt.Println("connatServer.Start OK")
 	return new(proto.StartResponse), nil
 }
 

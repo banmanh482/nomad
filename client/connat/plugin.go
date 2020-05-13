@@ -62,6 +62,7 @@ type Plugin struct {
 }
 
 func NewPlugin(cm ConNat) plugin.Plugin {
+	// todo: plumb bind config somehow
 	return &Plugin{cm: cm}
 }
 

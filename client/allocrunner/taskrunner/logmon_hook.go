@@ -47,13 +47,11 @@ type logmonHookConfig struct {
 }
 
 func newLogMonHook(tr *TaskRunner, logger hclog.Logger) *logmonHook {
-	hook := &logmonHook{
+	return &logmonHook{
 		runner: tr,
 		config: tr.logmonHookConfig,
 		logger: logger,
 	}
-
-	return hook
 }
 
 func newLogMonHookConfig(taskName, logDir string) *logmonHookConfig {

@@ -35,6 +35,7 @@ type ConNat interface {
 }
 
 func New(logger hclog.Logger) ConNat {
+	logger.Info("connat.New")
 	return &conNat{
 		logger: logger,
 	}
@@ -48,7 +49,7 @@ type conNat struct {
 }
 
 func (cn *conNat) Start(c *Config) error {
-	cn.logger.Trace("cn start")
+	cn.logger.Info("cn.conNat.Start")
 
 	cn.lock.Lock()
 	defer cn.lock.Unlock()
@@ -57,16 +58,16 @@ func (cn *conNat) Start(c *Config) error {
 		return errors.New("failed to start connat because it is already started")
 	}
 
-	cn.proxy = NewProxy(c.socketPath, c.bindTo, cn.logger)
+	cn.proxy = NewProxy(c.SocketPath, c.BindTo, cn.logger)
 	cn.proxy.Open()
 
-	cn.logger.Trace("cn started")
+	cn.logger.Info("cn.conNat.Start is complete")
 
 	return nil
 }
 
 func (cn *conNat) Stop() error {
-	cn.logger.Trace("cn stop")
+	cn.logger.Info("cn.conNat.Stop")
 
 	if cn.proxy == nil {
 		return errors.New("failed to stop connat because it is not running")
@@ -75,7 +76,7 @@ func (cn *conNat) Stop() error {
 	cn.proxy.Close()
 	cn.proxy = nil
 
-	cn.logger.Trace("cn stopped")
+	cn.logger.Info("cn.ConNat.Stop is complete")
 
 	return nil
 }
@@ -88,6 +89,8 @@ type Proxy struct {
 }
 
 func NewProxy(socketPath, bindTo string, logger hclog.Logger) *Proxy {
+	logger.Info("connat.NewProxy, bindTo:", bindTo, "socket:", socketPath)
+
 	return &Proxy{
 		logger:     logger,
 		socketPath: socketPath,
@@ -96,7 +99,7 @@ func NewProxy(socketPath, bindTo string, logger hclog.Logger) *Proxy {
 }
 
 func (p *Proxy) Open() {
-	p.logger.Trace("open proxy")
+	p.logger.Info("! open proxy")
 
 	p.stopC = make(chan os.Signal, 1)
 	signal.Notify(p.stopC, syscall.SIGTERM|syscall.SIGINT)
@@ -115,13 +118,17 @@ func (p *Proxy) Open() {
 		}
 	}(server)
 
-	select {
-	case <-p.stopC:
-		if err := server.Close(); err != nil {
-			p.logger.Error("failed to close server", "error", err)
+	go func(s *http.Server) {
+		select {
+		case <-p.stopC:
+			if err := server.Close(); err != nil {
+				p.logger.Error("failed to close server", "error", err)
+			}
+			p.logger.Info("proxy got stop signal and closed")
 		}
-		p.logger.Info("proxy got stop signal and closed")
-	}
+	}(server)
+
+	p.logger.Info("! done with open proxy, running in background")
 }
 
 func (p *Proxy) Close() {
@@ -131,7 +138,7 @@ func (p *Proxy) Close() {
 func (p *Proxy) handler(client *http.Client) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		p.logger.Trace("handle request", "method", r.Method, "path", r.URL.EscapedPath())
+		p.logger.Warn("handle request", "method", r.Method, "path", r.URL.EscapedPath())
 
 		socketRequest, err := relayRequest(r)
 		if err != nil {

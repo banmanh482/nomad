@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/hashicorp/nomad/client/allocdir"
 	"github.com/hashicorp/nomad/client/allocrunner/interfaces"
 	"github.com/hashicorp/nomad/client/connat"
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -42,7 +43,7 @@ type connatHook struct {
 	taskName string
 
 	// handle to the actual agent
-	cm             connat.ConNat
+	cm             connat.ConNat // is the grpc thing
 	cmPluginClient *plugin.Client
 }
 
@@ -107,6 +108,8 @@ func (h *connatHook) Prestart(
 }
 
 func (h *connatHook) prestartAttempt(ctx context.Context, req *interfaces.TaskPrestartRequest) error {
+	fmt.Println("connatHook.prestartAttempt")
+
 	// attach to a running connat if state indicates one
 	if h.cmPluginClient == nil {
 		reattachConfig, err := reattachConfigFromHookData(req.PreviousState)
@@ -128,18 +131,22 @@ func (h *connatHook) prestartAttempt(ctx context.Context, req *interfaces.TaskPr
 			// Retry errors launching connat as connat may have crashed on start
 			// and subsequent attempts will start a new one.
 			h.logger.Error("failed to launch connat co-process", "error", err)
+			fmt.Println("connatHook.prestartAttempt launchConNat was not ok:", err)
 			return structs.NewRecoverableError(err, true)
 		}
+		fmt.Println("connatHook.prestartAttempt launchConNat was OK")
 	}
 
-	// YOU ARE HERE
+	fmt.Println("connatHook.prestartAttempt Starting fake consul")
 	if err := h.cm.Start(&connat.Config{
-		SocketPath: "", // todo similar to envoy bootstrap hook
-		BindTo:     "", // todo draw me a picture
+		SocketPath: "unix://" + allocdir.AllocHTTPSocket, // like envoy hook
+		BindTo:     "127.0.0.1:8500",                     // todo: dynamic
 	}); err != nil {
+		fmt.Println("connatHook.prestartAttempt failed to start fake consul", err)
 		h.logger.Error("failed to start connat", "error", err)
 		return err
 	}
+	fmt.Println("connatHook.prestartAttempt, done with start fake consul")
 
 	return nil
 }

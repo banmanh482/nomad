@@ -157,7 +157,8 @@ func groupConnectHook(job *structs.Job, g *structs.TaskGroup) error {
 
 			// create a port for the sidecar task's proxy port
 			makePort(fmt.Sprintf("%s-%s", structs.ConnectProxyPrefix, service.Name))
-		} else if nativeTaskName := service.Connect.Native; nativeTaskName != "" {
+		} else if service.Connect.IsNative() {
+			nativeTaskName := service.Connect.Native
 			// tweak the TaskKind of the task named by this connect native service
 			// so we can reference it in task runner hooks down the line
 			if t := getNamedTaskForNativeService(g, nativeTaskName); t != nil {
