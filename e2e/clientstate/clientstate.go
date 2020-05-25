@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/client/state"
 	"github.com/hashicorp/nomad/e2e/e2eutil"
 	"github.com/hashicorp/nomad/e2e/execagent"
@@ -22,6 +21,7 @@ import (
 	"github.com/hashicorp/nomad/helper/testlog"
 	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/testutil"
+	api "github.com/hashicorp/nomadapi"
 )
 
 func init() {

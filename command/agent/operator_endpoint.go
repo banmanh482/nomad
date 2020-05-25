@@ -1,16 +1,15 @@
 package agent
 
 import (
-	"net/http"
-	"strings"
-
 	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/consul/agent/consul/autopilot"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/nomad/structs"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/hashicorp/raft"
 )
 

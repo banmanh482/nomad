@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hashicorp/nomad/api"
+	api "github.com/hashicorp/nomadapi"
 )
 
 func (c *PluginStatusCommand) csiBanner() {

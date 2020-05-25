@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/nomad/structs"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/stretchr/testify/require"
 )
 

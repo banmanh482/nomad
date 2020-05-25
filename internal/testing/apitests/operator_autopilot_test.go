@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/consul/sdk/testutil/retry"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/testutil"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/stretchr/testify/require"
 )
 

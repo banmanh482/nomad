@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/nomad/api"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/posener/complete"
 	"github.com/ryanuber/columnize"
 )

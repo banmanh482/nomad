@@ -3,8 +3,8 @@ package apitests
 import (
 	"testing"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/testutil"
+	api "github.com/hashicorp/nomadapi"
 )
 
 type configCallback func(c *api.Config)

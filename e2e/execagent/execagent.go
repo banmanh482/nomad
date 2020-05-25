@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/hashicorp/nomad/api"
+	api "github.com/hashicorp/nomadapi"
 )
 
 type AgentMode int

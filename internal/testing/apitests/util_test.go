@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad/api"
+	api "github.com/hashicorp/nomadapi"
 )
 
 // boolToPtr returns the pointer to a boolean

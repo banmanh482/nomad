@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/command/agent"
 	"github.com/hashicorp/nomad/nomad/structs"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/posener/complete"
 )
 

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/nomad/api"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/posener/complete"
 )
 

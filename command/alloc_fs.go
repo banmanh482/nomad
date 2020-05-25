@@ -11,8 +11,8 @@ import (
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
-	"github.com/hashicorp/nomad/api"
-	"github.com/hashicorp/nomad/api/contexts"
+	api "github.com/hashicorp/nomadapi"
+	"github.com/hashicorp/nomadapi/contexts"
 	"github.com/posener/complete"
 )
 

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/testutil/retry"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/nomad/structs"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

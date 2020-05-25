@@ -12,8 +12,8 @@ import (
 	"time"
 
 	gg "github.com/hashicorp/go-getter"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/kr/text"
 	"github.com/mitchellh/cli"
 	"github.com/posener/complete"

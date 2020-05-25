@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	capi "github.com/hashicorp/consul/api"
-	napi "github.com/hashicorp/nomad/api"
+	napi "github.com/hashicorp/nomadapi"
 	vapi "github.com/hashicorp/vault/api"
 )
 

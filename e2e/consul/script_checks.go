@@ -9,10 +9,10 @@ import (
 	"time"
 
 	capi "github.com/hashicorp/consul/api"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/e2e/e2eutil"
 	"github.com/hashicorp/nomad/e2e/framework"
 	"github.com/hashicorp/nomad/helper/uuid"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/stretchr/testify/require"
 )
 

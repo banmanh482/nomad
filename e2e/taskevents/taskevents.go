@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/e2e/framework"
 	"github.com/hashicorp/nomad/testutil"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/nomad/e2e/e2eutil"

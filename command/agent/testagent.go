@@ -12,11 +12,8 @@ import (
 	"strings"
 	"time"
 
-	testing "github.com/mitchellh/go-testing-interface"
-
 	metrics "github.com/armon/go-metrics"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/client/fingerprint"
 	"github.com/hashicorp/nomad/helper/freeport"
 	"github.com/hashicorp/nomad/helper/testlog"
@@ -25,6 +22,8 @@ import (
 	"github.com/hashicorp/nomad/nomad/structs"
 	sconfig "github.com/hashicorp/nomad/nomad/structs/config"
 	"github.com/hashicorp/nomad/testutil"
+	api "github.com/hashicorp/nomadapi"
+	testing "github.com/mitchellh/go-testing-interface"
 )
 
 func init() {

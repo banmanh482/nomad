@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/consul/sdk/testutil/retry"
-	"github.com/hashicorp/nomad/api"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/stretchr/testify/require"
 )
 

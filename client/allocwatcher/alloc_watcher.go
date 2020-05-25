@@ -13,11 +13,11 @@ import (
 
 	"github.com/hashicorp/consul/lib"
 	hclog "github.com/hashicorp/go-hclog"
-	nomadapi "github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/client/allocdir"
 	"github.com/hashicorp/nomad/client/config"
 	cstructs "github.com/hashicorp/nomad/client/structs"
 	"github.com/hashicorp/nomad/nomad/structs"
+	nomadapi "github.com/hashicorp/nomadapi"
 )
 
 const (

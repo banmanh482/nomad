@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/nomad/structs"
+	api "github.com/hashicorp/nomadapi"
 )
 
 func (c *VolumeStatusCommand) csiBanner() {

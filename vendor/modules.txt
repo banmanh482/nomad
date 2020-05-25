@@ -473,10 +473,10 @@ github.com/hashicorp/memberlist
 # github.com/hashicorp/net-rpc-msgpackrpc v0.0.0-20151116020338-a14192a58a69
 ## explicit
 github.com/hashicorp/net-rpc-msgpackrpc
-# github.com/hashicorp/nomad/api v0.0.0-20190412184103-1c38ced33adf => ./api
+# github.com/hashicorp/nomadapi v0.0.0-00010101000000-000000000000 => github.com/shoenig/nomadapi v0.0.0
 ## explicit
-github.com/hashicorp/nomad/api
-github.com/hashicorp/nomad/api/contexts
+github.com/hashicorp/nomadapi
+github.com/hashicorp/nomadapi/contexts
 # github.com/hashicorp/raft v1.1.3-0.20200211192230-365023de17e6
 ## explicit
 github.com/hashicorp/raft
@@ -1058,4 +1058,4 @@ honnef.co/go/tools/version
 # github.com/Microsoft/go-winio => github.com/Microsoft/go-winio v0.4.14
 # github.com/apparentlymart/go-textseg/v12 => github.com/apparentlymart/go-textseg/v12 v12.0.0
 # github.com/godbus/dbus => github.com/godbus/dbus v5.0.1+incompatible
-# github.com/hashicorp/nomad/api => ./api
+# github.com/hashicorp/nomadapi => github.com/shoenig/nomadapi v0.0.0

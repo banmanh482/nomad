@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/scheduler"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/posener/complete"
 )
 

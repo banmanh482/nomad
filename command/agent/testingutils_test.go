@@ -3,9 +3,9 @@ package agent
 import (
 	"time"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/helper"
 	"github.com/hashicorp/nomad/helper/uuid"
+	api "github.com/hashicorp/nomadapi"
 )
 
 func MockJob() *api.Job {

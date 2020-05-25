@@ -5,8 +5,8 @@ import (
 
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/helper"
+	api "github.com/hashicorp/nomadapi"
 )
 
 func (c *VolumeRegisterCommand) csiRegister(client *api.Client, ast *ast.File) int {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/helper/uuid"
+	api "github.com/hashicorp/nomadapi"
 )
 
 // AgentRestart is a test helper function that restarts a client node

@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
+	api "github.com/hashicorp/nomadapi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 

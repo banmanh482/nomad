@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/nomad/api/contexts"
+	"github.com/hashicorp/nomadapi/contexts"
 	"github.com/posener/complete"
 )
 

@@ -5,10 +5,10 @@ import (
 	"time"
 
 	consulapi "github.com/hashicorp/consul/api"
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/e2e/framework"
 	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/jobspec"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
 )

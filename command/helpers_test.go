@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/helper"
 	"github.com/hashicorp/nomad/helper/flatmap"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/kr/pretty"
 	"github.com/mitchellh/cli"
 	"github.com/stretchr/testify/require"

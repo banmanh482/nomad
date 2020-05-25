@@ -6,7 +6,8 @@ replace (
 	github.com/Microsoft/go-winio => github.com/Microsoft/go-winio v0.4.14
 	github.com/apparentlymart/go-textseg/v12 => github.com/apparentlymart/go-textseg/v12 v12.0.0
 	github.com/godbus/dbus => github.com/godbus/dbus v5.0.1+incompatible
-	github.com/hashicorp/nomad/api => ./api
+
+	github.com/hashicorp/nomadapi => github.com/shoenig/nomadapi v0.0.0
 )
 
 require (
@@ -76,7 +77,7 @@ require (
 	github.com/hashicorp/logutils v1.0.0
 	github.com/hashicorp/memberlist v0.1.6
 	github.com/hashicorp/net-rpc-msgpackrpc v0.0.0-20151116020338-a14192a58a69
-	github.com/hashicorp/nomad/api v0.0.0-20190412184103-1c38ced33adf
+	github.com/hashicorp/nomadapi v0.0.0-00010101000000-000000000000
 	github.com/hashicorp/raft v1.1.3-0.20200211192230-365023de17e6
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/hashicorp/serf v0.8.5

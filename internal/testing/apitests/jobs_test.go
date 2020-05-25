@@ -3,8 +3,8 @@ package apitests
 import (
 	"testing"
 
-	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/nomad/mock"
+	api "github.com/hashicorp/nomadapi"
 	"github.com/stretchr/testify/assert"
 )
 
