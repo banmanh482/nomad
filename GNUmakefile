@@ -44,6 +44,7 @@ endif
 # On MacOS, we only build for MacOS
 ifeq (Darwin,$(THIS_OS))
 ALL_TARGETS += darwin_amd64
+$(info Will copy darwin cgo files)
 $(cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host)
 endif
 
