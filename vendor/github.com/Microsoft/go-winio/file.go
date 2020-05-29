@@ -111,13 +111,7 @@ func makeWin32File(h syscall.Handle) (*win32File, error) {
 }
 
 func MakeOpenFile(h syscall.Handle) (io.ReadWriteCloser, error) {
-	// If we return the result of makeWin32File directly, it can result in an
-	// interface-wrapped nil, rather than a nil interface value.
-	f, err := makeWin32File(h)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
+	return makeWin32File(h)
 }
 
 // closeHandle closes the resources associated with a Win32 handle

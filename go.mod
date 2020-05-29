@@ -3,7 +3,7 @@ module github.com/hashicorp/nomad
 go 1.14
 
 replace (
-	github.com/Microsoft/go-winio => github.com/Microsoft/go-winio v0.4.14
+	github.com/Microsoft/go-winio => github.com/endocrimes/go-winio v0.4.13-0.20190628114223-fb47a8b41948
 	github.com/apparentlymart/go-textseg/v12 => github.com/apparentlymart/go-textseg/v12 v12.0.0
 	github.com/godbus/dbus => github.com/godbus/dbus v5.0.1+incompatible
 
