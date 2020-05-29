@@ -45,6 +45,10 @@ endif
 ifeq (Darwin,$(THIS_OS))
 ALL_TARGETS += darwin_amd64
 $(info Will copy darwin cgo files)
+LSLIBD := $(shell ls lib/darwin/include)
+$(info lslibd is $(LSLIBD))
+MPWD := $(shell pwd)
+$(info mpwd is $(MPWD))
 $(cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host)
 endif
 
