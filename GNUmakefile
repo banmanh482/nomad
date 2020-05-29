@@ -50,6 +50,8 @@ $(info lslibd is $(LSLIBD))
 MPWD := $(shell pwd)
 $(info mpwd is $(MPWD))
 $(cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host)
+LSA := $(shell ls vendor/github.com/shirou/gopsutil/host)
+$(info LSA is $(LSA))
 endif
 
 # On FreeBSD, we only build for FreeBSD
@@ -228,6 +230,7 @@ generate-structs: LOCAL_PACKAGES = $(shell go list ./... | grep -v '/vendor/')
 generate-structs: ## Update generated code
 	@echo "--> Running go generate..."
 	@go generate $(LOCAL_PACKAGES)
+	@echo "ls after:  $(shell ls vendor/github.com/shirou/gopsutil/host)"
 
 .PHONY: proto
 proto:
