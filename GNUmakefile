@@ -44,6 +44,7 @@ endif
 # On MacOS, we only build for MacOS
 ifeq (Darwin,$(THIS_OS))
 ALL_TARGETS += darwin_amd64
+$(cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host)
 endif
 
 # On FreeBSD, we only build for FreeBSD
@@ -56,7 +57,6 @@ endif
 
 pkg/darwin_amd64/nomad: $(SOURCE_FILES) ## Build Nomad for darwin/amd64
 	@echo "==> Building $@ with tags $(GO_TAGS)..."
-	@cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host
 	@CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
 		go build \
 		-trimpath \
