@@ -8,6 +8,7 @@ replace (
 	github.com/godbus/dbus => github.com/godbus/dbus v5.0.1+incompatible
 
 	github.com/hashicorp/nomadapi => github.com/shoenig/nomadapi v0.0.0
+	github.com/kr/pty => github.com/kr/pty v1.1.5
 )
 
 require (
@@ -87,7 +88,7 @@ require (
 	github.com/hpcloud/tail v1.0.1-0.20170814160653-37f427138745
 	github.com/joyent/triton-go v0.0.0-20190112182421-51ffac552869 // indirect
 	github.com/kr/pretty v0.2.0
-	github.com/kr/pty v1.1.8
+	github.com/kr/pty v1.1.5
 	github.com/kr/text v0.2.0
 	github.com/mattn/go-colorable v0.1.6
 	github.com/mitchellh/cli v1.0.0

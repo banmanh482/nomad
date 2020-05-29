@@ -175,8 +175,6 @@ github.com/coreos/go-systemd/util
 # github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 ## explicit
 github.com/coreos/pkg/dlopen
-# github.com/creack/pty v1.1.9
-github.com/creack/pty
 # github.com/cyphar/filepath-securejoin v0.2.3-0.20190205144030-7efe413b52e1
 ## explicit
 github.com/cyphar/filepath-securejoin
@@ -528,7 +526,7 @@ github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/pretty v0.2.0
 ## explicit
 github.com/kr/pretty
-# github.com/kr/pty v1.1.8
+# github.com/kr/pty v1.1.5 => github.com/kr/pty v1.1.5
 ## explicit
 github.com/kr/pty
 # github.com/kr/text v0.2.0
@@ -1059,3 +1057,4 @@ honnef.co/go/tools/version
 # github.com/apparentlymart/go-textseg/v12 => github.com/apparentlymart/go-textseg/v12 v12.0.0
 # github.com/godbus/dbus => github.com/godbus/dbus v5.0.1+incompatible
 # github.com/hashicorp/nomadapi => github.com/shoenig/nomadapi v0.0.0
+# github.com/kr/pty => github.com/kr/pty v1.1.5
