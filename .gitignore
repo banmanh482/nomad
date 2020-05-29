@@ -104,3 +104,6 @@ azure-hashistack.pem
 
 # generated keys for e2e tests
 e2e/terraform/keys/
+
+# copied CGO files
+vendor/github.com/shirou/gopsutil/host/include/
