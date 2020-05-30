@@ -53,7 +53,7 @@ $(info mpwd is $(MPWD))
 BEFORE := $(shell ls vendor/github.com/shirou/gopsutil/host)
 $(info BEFORE is $(BEFORE))
 
-$(cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host)
+$(shell cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host)
 
 AFTER := $(shell ls vendor/github.com/shirou/gopsutil/host)
 $(info AFTER is $(AFTER))
