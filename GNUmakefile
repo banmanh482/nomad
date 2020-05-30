@@ -49,9 +49,14 @@ LSLIBD := $(shell ls lib/darwin/include)
 $(info lslibd is $(LSLIBD))
 MPWD := $(shell pwd)
 $(info mpwd is $(MPWD))
+
+BEFORE := $(shell ls vendor/github.com/shirou/gopsutil/host)
+$(info BEFORE is $(BEFORE))
+
 $(cp -R lib/darwin/include vendor/github.com/shirou/gopsutil/host)
-LSA := $(shell ls vendor/github.com/shirou/gopsutil/host)
-$(info LSA is $(LSA))
+
+AFTER := $(shell ls vendor/github.com/shirou/gopsutil/host)
+$(info AFTER is $(AFTER))
 endif
 
 # On FreeBSD, we only build for FreeBSD
