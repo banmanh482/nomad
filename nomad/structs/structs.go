@@ -5985,6 +5985,11 @@ func (tg *TaskGroup) Warnings(j *Job) error {
 		}
 	}
 
+	// Check for mbits network field
+	if len(tg.Networks) > 0 && tg.Networks[0].MBits > 0 {
+		mErr.Errors = append(mErr.Errors, fmt.Errorf("mbits has been deprecated as of Nomad 0.12.0. Please remove mbits from the network block"))
+	}
+
 	for _, t := range tg.Tasks {
 		if err := t.Warnings(); err != nil {
 			err = multierror.Prefix(err, fmt.Sprintf("Task %q:", t.Name))
@@ -6625,6 +6630,10 @@ func (t *Task) Warnings() error {
 	// Validate the resources
 	if t.Resources != nil && t.Resources.IOPS != 0 {
 		mErr.Errors = append(mErr.Errors, fmt.Errorf("IOPS has been deprecated as of Nomad 0.9.0. Please remove IOPS from resource stanza."))
+	}
+
+	if t.Resources != nil && len(t.Resources.Networks) != 0 {
+		mErr.Errors = append(mErr.Errors, fmt.Errorf("task network resources have been deprecated as of Nomad 0.12.0. Please configure networking via group network block."))
 	}
 
 	for idx, tmpl := range t.Templates {
