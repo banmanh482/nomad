@@ -5733,9 +5733,7 @@ func TestJobEndpoint_ValidateJob_ConsulConnect(t *testing.T) {
 
 		tg := j.TaskGroups[0]
 		tg.Services = tgServices
-		tg.Networks = structs.Networks{
-			{Mode: "bridge"},
-		}
+		tg.Networks[0].Mode = "bridge"
 
 		err := validateJob(j)
 		require.NoError(t, err)
