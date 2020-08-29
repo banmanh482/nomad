@@ -2,6 +2,10 @@ job "example" {
   datacenters = ["dc1"]
 
   group "cache" {
+    network {
+      port "db" {}
+    }
+
     task "redis" {
       driver = "docker"
 
@@ -16,11 +20,6 @@ job "example" {
       resources {
         cpu    = 500
         memory = 256
-
-        network {
-          mbits = 10
-          port "db" {}
-        }
       }
     }
   }
