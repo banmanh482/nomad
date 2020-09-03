@@ -3,7 +3,9 @@ job "example" {
 
   group "cache" {
     network {
-      port "db" {}
+      port "db" {
+        to = 6379
+      }
     }
 
     task "redis" {
@@ -12,9 +14,7 @@ job "example" {
       config {
         image = "redis:3.2"
 
-        port_map {
-          db = 6379
-        }
+        ports = ["db"]
       }
 
       resources {

@@ -151,7 +151,9 @@ job "example" {
     #     https://www.nomadproject.io/docs/job-specification/network
     #
     network {
-      port "db" {}
+      port "db" {
+        to = 6379
+      }
     }
 
     # The "service" stanza instructs Nomad to register this task as a service
@@ -302,9 +304,7 @@ job "example" {
       config {
         image = "redis:3.2"
 
-        port_map {
-          db = 6379
-        }
+        ports = ["db"]
       }
 
       # The "artifact" stanza instructs Nomad to download an artifact from a
