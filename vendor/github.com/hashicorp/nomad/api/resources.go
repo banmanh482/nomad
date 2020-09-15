@@ -100,10 +100,20 @@ type NetworkResource struct {
 	Device        string
 	CIDR          string
 	IP            string
-	MBits         *int
 	DNS           *DNSConfig
 	ReservedPorts []Port
 	DynamicPorts  []Port
+
+	// COMPAT(0.13)
+	// XXX Deprecated. Please do not use. The field will be removed in Nomad
+	// 0.13 and is only being kept to allow any references to be removed before
+	// then.
+	MBits *int
+}
+
+func (n *NetworkResource) Canonicalize() {
+	// COMPAT(0.13)
+	// Noop to maintain backwards compatibility
 }
 
 func (n *NetworkResource) HasPorts() bool {
