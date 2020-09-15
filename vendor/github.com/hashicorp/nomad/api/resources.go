@@ -30,9 +30,6 @@ func (r *Resources) Canonicalize() {
 	if r.MemoryMB == nil {
 		r.MemoryMB = defaultResources.MemoryMB
 	}
-	for _, n := range r.Networks {
-		n.Canonicalize()
-	}
 	for _, d := range r.Devices {
 		d.Canonicalize()
 	}
@@ -107,12 +104,6 @@ type NetworkResource struct {
 	DNS           *DNSConfig
 	ReservedPorts []Port
 	DynamicPorts  []Port
-}
-
-func (n *NetworkResource) Canonicalize() {
-	if n.MBits == nil {
-		n.MBits = intToPtr(10)
-	}
 }
 
 func (n *NetworkResource) HasPorts() bool {
