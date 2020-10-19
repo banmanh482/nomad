@@ -55,29 +55,44 @@ func (s *Server) monitorLeadership() {
 	var weAreLeaderCh chan struct{}
 	var leaderLoop sync.WaitGroup
 
+	fmt.Println("Server.monitorLeadership <enter>")
+
 	leaderCh := s.raft.LeaderCh()
 
+	fmt.Println("Server.monitorLeadership A")
+
 	leaderStep := func(isLeader bool) {
+		fmt.Println("Server.monitorLeadership.leaderStep A")
 		if isLeader {
+			fmt.Println("Server.monitorLeadership.leaderStep A1")
 			if weAreLeaderCh != nil {
+				fmt.Println("Server.monitorLeadership.leaderStep A2")
 				s.logger.Error("attempted to start the leader loop while running")
 				return
 			}
+			fmt.Println("Server.monitorLeadership.leaderStep A3")
 
 			weAreLeaderCh = make(chan struct{})
 			leaderLoop.Add(1)
 			go func(ch chan struct{}) {
+				fmt.Println("Server.monitorLeadership.leaderStep A4")
 				defer leaderLoop.Done()
+				fmt.Println("Server.monitorLeadership.leaderStep A5")
 				s.leaderLoop(ch)
+				fmt.Println("Server.monitorLeadership.leaderStep A6")
 			}(weAreLeaderCh)
 			s.logger.Info("cluster leadership acquired")
+			fmt.Println("Server.monitorLeadership.leaderStop A7")
 			return
 		}
 
 		if weAreLeaderCh == nil {
+			fmt.Println("Server.monitorLeadership C")
 			s.logger.Error("attempted to stop the leader loop while not running")
 			return
 		}
+
+		fmt.Println("Server.monitorLeadership D")
 
 		s.logger.Debug("shutting down leader loop")
 		close(weAreLeaderCh)
@@ -88,13 +103,17 @@ func (s *Server) monitorLeadership() {
 
 	wasLeader := false
 	for {
+		fmt.Println("Server.monitorLeadership E - <loop begin>")
 		select {
 		case isLeader := <-leaderCh:
+			fmt.Println("Server.monitorLeadership F read leaderCh")
 			if wasLeader != isLeader {
+				fmt.Println("Server.monitorLeadership F1")
 				wasLeader = isLeader
 				// normal case where we went through a transition
 				leaderStep(isLeader)
 			} else if wasLeader && isLeader {
+				fmt.Println("Server.monitorLeadership F2")
 				// Server lost but then gained leadership immediately.
 				// During this time, this server may have received
 				// Raft transitions that haven't been applied to the FSM
@@ -105,11 +124,13 @@ func (s *Server) monitorLeadership() {
 				leaderStep(false)
 				leaderStep(true)
 			} else {
+				fmt.Println("Server.monitorLeadership F3")
 				// Server gained but lost leadership immediately
 				// before it reacted; nothing to do, move on
 				s.logger.Warn("cluster leadership gained and lost leadership immediately.  Could indicate network issues, memory paging, or high CPU load.")
 			}
 		case <-s.shutdownCh:
+			fmt.Println("Server.monitorLeadership F9")
 			if weAreLeaderCh != nil {
 				leaderStep(false)
 			}
@@ -124,7 +145,11 @@ func (s *Server) leaderLoop(stopCh chan struct{}) {
 	var reconcileCh chan serf.Member
 	establishedLeader := false
 
+	fmt.Println("Server.leaderLoop <enter>")
+
 RECONCILE:
+
+	fmt.Println("Server.leaderLoop A")
 	// Setup a reconciliation timer
 	reconcileCh = nil
 	interval := time.After(s.config.ReconcileInterval)
@@ -132,39 +157,52 @@ RECONCILE:
 	// Apply a raft barrier to ensure our FSM is caught up
 	start := time.Now()
 	barrier := s.raft.Barrier(barrierWriteTimeout)
+	fmt.Println("Server.leaderLoop B")
 	if err := barrier.Error(); err != nil {
+		fmt.Println("Server.leaderLoop B2")
 		s.logger.Error("failed to wait for barrier", "error", err)
 		goto WAIT
 	}
 	metrics.MeasureSince([]string{"nomad", "leader", "barrier"}, start)
+	fmt.Println("Server.leaderLoop C")
 
 	// Check if we need to handle initial leadership actions
 	if !establishedLeader {
+		fmt.Println("Server.leaderLoop C1")
 		if err := s.establishLeadership(stopCh); err != nil {
+			fmt.Println("Server.leaderLoop C2")
 			s.logger.Error("failed to establish leadership", "error", err)
 
 			// Immediately revoke leadership since we didn't successfully
 			// establish leadership.
 			if err := s.revokeLeadership(); err != nil {
+				fmt.Println("Server.leaderLoop C3")
 				s.logger.Error("failed to revoke leadership", "error", err)
 			}
+			fmt.Println("Server.leaderLoop C4")
 
 			goto WAIT
 		}
-
+		fmt.Println("Server.leaderLoop C5")
 		establishedLeader = true
 		defer func() {
+			fmt.Println("Server.leaderLoop C6")
 			if err := s.revokeLeadership(); err != nil {
+				fmt.Println("Server.leaderLoop C7")
 				s.logger.Error("failed to revoke leadership", "error", err)
 			}
 		}()
+		fmt.Println("Server.leaderLoop C8")
 	}
 
+	fmt.Println("Server.leaderLoop D")
 	// Reconcile any missing data
 	if err := s.reconcile(); err != nil {
+		fmt.Println("Server.leaderLoop D1")
 		s.logger.Error("failed to reconcile", "error", err)
 		goto WAIT
 	}
+	fmt.Println("Server.leaderLoop E")
 
 	// Initial reconcile worked, now we can process the channel
 	// updates
@@ -175,23 +213,33 @@ RECONCILE:
 	// down.
 	select {
 	case <-stopCh:
+		fmt.Println("Server.leaderLoop F1")
 		return
 	default:
+		fmt.Println("Server.leaderLoop F2")
 	}
 
 WAIT:
+	fmt.Println("Server.leaderLoop W")
 	// Wait until leadership is lost
 	for {
+		fmt.Println("Server.leaderLoop W1")
 		select {
 		case <-stopCh:
+			fmt.Println("Server.leaderLoop W2")
 			return
 		case <-s.shutdownCh:
+			fmt.Println("Server.leaderLoop W3")
 			return
 		case <-interval:
+			fmt.Println("Server.leaderLoop W4")
 			goto RECONCILE
 		case member := <-reconcileCh:
+			fmt.Println("Server.leaderLoop W5")
 			s.reconcileMember(member)
+			fmt.Println("Server.leaderLoop W6")
 		case errCh := <-s.reassertLeaderCh:
+			fmt.Println("Server.leaderLoop W7")
 			// Recompute leader state, by asserting leadership and
 			// repopulating leader states.
 
@@ -203,14 +251,19 @@ WAIT:
 			// here. There is no point to reassert because this
 			// agent was never leader in the first place.
 			if !establishedLeader {
+				fmt.Println("Server.leaderLoop W8")
 				errCh <- fmt.Errorf("leadership has not been established")
 				continue
 			}
+			fmt.Println("Server.leaderLoop W9")
 
 			// refresh leadership state
 			s.revokeLeadership()
+			fmt.Println("Server.leaderLoop W10")
 			err := s.establishLeadership(stopCh)
+			fmt.Println("Server.leaderLoop W11")
 			errCh <- err
+			fmt.Println("Server.leaderLoop W12")
 		}
 	}
 }
@@ -222,9 +275,14 @@ WAIT:
 func (s *Server) establishLeadership(stopCh chan struct{}) error {
 	defer metrics.MeasureSince([]string{"nomad", "leader", "establish_leadership"}, time.Now())
 
+	fmt.Println("Server.establishLeadership <enter>")
+	fmt.Println("Server.establishLeadership A")
+
 	// Generate a leader ACL token. This will allow the leader to issue work
 	// that requires a valid ACL token.
 	s.setLeaderAcl(uuid.Generate())
+
+	fmt.Println("Server.establishLeadership B")
 
 	// Disable workers to free half the cores for use in the plan queue and
 	// evaluation broker
@@ -232,61 +290,84 @@ func (s *Server) establishLeadership(stopCh chan struct{}) error {
 		w.SetPause(true)
 	}
 
+	fmt.Println("Server.establishLeadership C")
+
 	// Initialize and start the autopilot routine
 	s.getOrCreateAutopilotConfig()
+	fmt.Println("Server.establishLeadership D")
+
 	s.autopilot.Start()
+	fmt.Println("Server.establishLeadership E")
 
 	// Initialize scheduler configuration
 	s.getOrCreateSchedulerConfig()
+	fmt.Println("Server.establishLeadership F")
 
 	// Initialize the ClusterID
 	_, _ = s.ClusterID()
 	// todo: use cluster ID for stuff, later!
+	fmt.Println("Server.establishLeadership G")
 
 	// Enable the plan queue, since we are now the leader
 	s.planQueue.SetEnabled(true)
+	fmt.Println("Server.establishLeadership H")
 
 	// Start the plan evaluator
 	go s.planApply()
+	fmt.Println("Server.establishLeadership I")
 
 	// Enable the eval broker, since we are now the leader
 	s.evalBroker.SetEnabled(true)
+	fmt.Println("Server.establishLeadership J")
 
 	// Enable the blocked eval tracker, since we are now the leader
 	s.blockedEvals.SetEnabled(true)
+	fmt.Println("Server.establishLeadership K")
+
 	s.blockedEvals.SetTimetable(s.fsm.TimeTable())
+	fmt.Println("Server.establishLeadership L")
 
 	// Enable the deployment watcher, since we are now the leader
 	s.deploymentWatcher.SetEnabled(true, s.State())
+	fmt.Println("Server.establishLeadership M")
 
 	// Enable the NodeDrainer
 	s.nodeDrainer.SetEnabled(true, s.State())
+	fmt.Println("Server.establishLeadership N")
 
 	// Enable the volume watcher, since we are now the leader
 	s.volumeWatcher.SetEnabled(true, s.State())
+	fmt.Println("Server.establishLeadership O")
 
 	// Restore the eval broker state
 	if err := s.restoreEvals(); err != nil {
+		fmt.Println("Server.establishLeadership P")
 		return err
 	}
+	fmt.Println("Server.establishLeadership Q")
 
 	// Activate the vault client
 	s.vault.SetActive(true)
+	fmt.Println("Server.establishLeadership R")
 
 	// Enable the periodic dispatcher, since we are now the leader.
 	s.periodicDispatcher.SetEnabled(true)
+	fmt.Println("Server.establishLeadership S")
 
 	// Activate RPC now that local FSM caught up with Raft (as evident by Barrier call success)
 	// and all leader related components (e.g. broker queue) are enabled.
 	// Auxiliary processes (e.g. background, bookkeeping, and cleanup tasks can start after)
 	s.setConsistentReadReady()
+	fmt.Println("Server.establishLeadership T")
 
 	// Further clean ups and follow up that don't block RPC consistency
 
 	// Restore the periodic dispatcher state
 	if err := s.restorePeriodicDispatcher(); err != nil {
+		fmt.Println("Server.establishLeadership U")
 		return err
 	}
+	fmt.Println("Server.establishLeadership V")
 
 	// Scheduler periodic jobs
 	go s.schedulePeriodic(stopCh)
