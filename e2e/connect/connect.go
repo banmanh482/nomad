@@ -92,3 +92,14 @@ func (tc *ConnectE2ETest) TestConnectIngressGatewayDemo(f *framework.F) {
 	allocIDs := e2eutil.AllocIDsFromAllocationListStubs(allocs)
 	e2eutil.WaitForAllocsRunning(t, tc.Nomad(), allocIDs)
 }
+
+func (tc *ConnectE2ETest) TestConnectTerminatingGatewayDemo(f *framework.F) {
+	t := f.T()
+
+	jobID := connectJobID()
+	tc.jobIds = append(tc.jobIds, jobID)
+
+	allocs := e2eutil.RegisterAndWaitForAllocs(t, tc.Nomad(), demoConnectTerminatingGateway, jobID, "")
+	allocIDs := e2eutil.AllocIDsFromAllocationListStubs(allocs)
+	e2eutil.WaitForAllocsRunning(t, tc.Nomad(), allocIDs)
+}

@@ -1,5 +1,9 @@
 ## 1.0.3 (Unreleased)
 
+FEATURES:
+
+* **Terminating Gateways**: Adds built-in support for running Consul Connect terminating gateways [[GH-9829](https://github.com/hashicorp/nomad/pull/9829)]
+
 ## 1.0.2 (January 14, 2020)
 
 IMPROVEMENTS:
