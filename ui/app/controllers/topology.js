@@ -39,7 +39,7 @@ export default class TopologyControllers extends Controller {
     return reduceToLargestUnit(this.totalMemory)[0].toFixed(2);
   }
 
-  @computed('totalCPU')
+  @computed('totalCPU', 'totalMemory')
   get totalMemoryUnits() {
     return reduceToLargestUnit(this.totalMemory)[1];
   }
@@ -67,7 +67,7 @@ export default class TopologyControllers extends Controller {
     return this.totalReservedCPU / this.totalCPU;
   }
 
-  @computed('activeAllocation', 'model.allocations.@each.{taskGroupName,job}')
+  @computed('activeAllocation.taskGroupName', 'model.allocations.@each.{job,taskGroupName}')
   get siblingAllocations() {
     if (!this.activeAllocation) return [];
     const taskGroup = this.activeAllocation.taskGroupName;
