@@ -44,7 +44,7 @@ export default function() {
 
       // Annotate the response with the index
       if (response instanceof Response) {
-        response.headers['x-nomad-index'] = index;
+        response.headers['X-Nomad-Index'] = index;
         return response;
       }
       return new Response(200, { 'x-nomad-index': index }, response);
@@ -352,7 +352,7 @@ export default function() {
   });
 
   this.get('/acl/token/self', function({ tokens }, req) {
-    const secret = req.requestHeaders['x-nomad-token'];
+    const secret = req.requestHeaders['X-Nomad-Token'];
     const tokenForSecret = tokens.findBy({ secretId: secret });
 
     // Return the token if it exists
@@ -366,7 +366,7 @@ export default function() {
 
   this.get('/acl/token/:id', function({ tokens }, req) {
     const token = tokens.find(req.params.id);
-    const secret = req.requestHeaders['x-nomad-token'];
+    const secret = req.requestHeaders['X-Nomad-Token'];
     const tokenForSecret = tokens.findBy({ secretId: secret });
 
     // Return the token only if the request header matches the token
@@ -381,7 +381,7 @@ export default function() {
 
   this.get('/acl/policy/:id', function({ policies, tokens }, req) {
     const policy = policies.find(req.params.id);
-    const secret = req.requestHeaders['x-nomad-token'];
+    const secret = req.requestHeaders['X-Nomad-Token'];
     const tokenForSecret = tokens.findBy({ secretId: secret });
 
     if (req.params.id === 'anonymous') {
