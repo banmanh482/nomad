@@ -605,6 +605,10 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 					if missing.IsRescheduling() {
 						updateRescheduleTracker(alloc, prevAllocation, now)
 					}
+
+					// If the allocation has task handles,
+					// migrate them to the new allocation
+					transferTaskState(alloc, prevAllocation, missing.PreviousLost())
 				}
 
 				// If we are placing a canary and we found a match, add the canary
@@ -640,6 +644,45 @@ func (s *GenericScheduler) computePlacements(destructive, place []placementResul
 	}
 
 	return nil
+}
+
+// transferTaskState copies task handles from previous allocations to
+// replacement allocations when the previous allocation is being drained or was
+// lost.
+//
+// The previous allocation will be marked as lost as part of this plan, so its
+// ClientStatus is not yet lost.
+func transferTaskState(alloc, prev *structs.Allocation, prevLost bool) {
+	// Don't transfer state from client terminal allocs
+	if prev.ClientTerminalStatus() {
+		return
+	}
+
+	// If previous allocation is not lost and not draining, do not copy
+	// task handles.
+	if !prevLost && !prev.DesiredTransition.ShouldMigrate() {
+		return
+	}
+
+	//FIXME(schmichael) do *not* copy for destructive updates; only copy for drains & lost
+	// Copy task handles if they exist
+	alloc.TaskStates = make(map[string]*structs.TaskState, len(alloc.AllocatedResources.Tasks))
+	for taskName, prevState := range prev.TaskStates {
+		if prevState.TaskHandle == nil {
+			// No task handle, skip
+			continue
+		}
+
+		if _, ok := alloc.AllocatedResources.Tasks[taskName]; !ok {
+			// Task dropped in update, skip
+			continue
+		}
+
+		// Copy state
+		newState := structs.NewTaskState()
+		newState.TaskHandle = prevState.TaskHandle.Copy()
+		alloc.TaskStates[taskName] = newState
+	}
 }
 
 // getSelectOptions sets up preferred nodes and penalty nodes
