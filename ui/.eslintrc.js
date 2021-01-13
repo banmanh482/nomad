@@ -37,8 +37,7 @@ module.exports = {
     ],
     'ember/classic-decorator-hooks': 'error',
     'ember/classic-decorator-no-classic-methods': 'error',
-    'ember/no-get': 'off',
-    'no-setter-return': 'off', // FIXME fix these?
+    'ember/no-get': 'off', // FIXME fix this?
   },
   overrides: [
     // node files
